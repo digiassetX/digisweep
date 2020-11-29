@@ -1,9 +1,21 @@
 {
-  "name": "DigiSweep_main",
-  "version": "1.0.0",
+  "name": "digisweep_browser",
+  "version": "0.0.1",
+  "description": "Browser Version of DigiSweep",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Matthew Cornelisse",
+  "license": "MIT",
   "dependencies": {
     "digibyte": "^0.15.8",
     "digisweep2": "^1.0.2",
     "jquery": "^3.5.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/digiassetX/digisweep/tree/main/browser"
   }
 }
