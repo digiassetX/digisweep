@@ -1,4 +1,4 @@
-#DigiSweep
+# DigiSweep
 
 ## Installation
 ``` bash
@@ -7,7 +7,7 @@ npm install digisweep
 
 ## Safe Usage
 ``` javascript
-const DigiSweep=require('digisweep');
+const DigiSweep=require('digisweep2');
 
 const getRawTxs=async(mnemonic,coinAddress,assetAddress)=>{
     let addressData=await DigiSweep.findFunds(mnemonic);
@@ -27,7 +27,7 @@ getRawTxs('acoustic maximum page wife amount praise guess unhappy argue rather f
 
 ## Unsafe But Easy
 ``` javascript
-const DigiSweep=require('digisweep');
+const DigiSweep=require('digisweep2');
 
 const sendRawTxs=async(mnemonic,coinAddress,assetAddress)=>{
     let addressData=await DigiSweep.findFunds(mnemonic);
