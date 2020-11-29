@@ -2,7 +2,7 @@
 
 ## Installation
 ``` bash
-npm install digisweep
+npm install digisweep2
 ```
 
 ## Safe Usage
