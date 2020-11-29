@@ -1,0 +1,21 @@
+.page{
+	padding:			2px;
+}
+
+.pathsHead{
+	padding: 			3px 2px;
+}
+.pathsCell{
+	padding: 			3px 2px;
+}
+
+#common_path_header{
+	font-size:			22px;
+}
+
+
+
+.window {
+	padding:			5px 5px;
+	width:				320px;
+}

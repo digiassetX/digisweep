@@ -1,0 +1,9 @@
+{
+  "name": "DigiSweep_main",
+  "version": "1.0.0",
+  "dependencies": {
+    "digibyte": "^0.15.8",
+    "digisweep2": "^1.0.2",
+    "jquery": "^3.5.1"
+  }
+}
