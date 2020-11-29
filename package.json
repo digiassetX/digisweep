@@ -1,0 +1,24 @@
+{
+  "name": "digisweep2",
+  "version": "1.0.0",
+  "description": "Allows easy recovery of DigiByte coins and assets",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Matthew Cornelisse",
+  "license": "MIT",
+  "dependencies": {
+    "bip39": "^3.0.3",
+    "digibyte": "^0.15.8",
+    "got": "^11.8.0"
+  },
+  "devDependencies": {
+    "nodeunit": "^0.11.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/digiassetX/digisweep"
+  }
+}
