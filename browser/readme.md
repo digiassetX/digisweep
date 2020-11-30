@@ -1,3 +1,4 @@
-browserify index.js > min.js
+execute to rebuild index.js in to min.js
+dist folder contains the usable web page
 
-to build min.js
+webpack --config webpack.config.js

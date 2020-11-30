@@ -1,7 +1,11 @@
-const DigiSweep=require('digisweep2');
-const digibyte=require('digibyte');
-const $ = require('jquery');
+import * as process from "process";
+window["process"] = process;
 
+import 'whatwg-fetch';
+
+
+const DigiSweep=require('../index');
+const $ = require('jquery');
 
 let addressData=[];
 let coinAddress;
@@ -35,20 +39,20 @@ $(function() {
         $("#scanning_page").show();
 
         //get inputs
-        let mnemonic = $("#mnemonic").val();
-        coinAddress = $("#coinaddress").val();
-        assetAddress = $("#assetaddress").val();
+        let mnemonic = $("#mnemonic").val().trim();
+        coinAddress = $("#coinaddress").val().trim();
+        assetAddress = $("#assetaddress").val().trim();
 
         //validate inputs
-        if (!digibyte.Address.isValid(coinAddress)) {
+        if (!DigiSweep.validAddress(coinAddress)) {
             return showError(coinAddress + " is not a valid address");
         }
-        if (!digibyte.Address.isValid(assetAddress)) {
+        if (!DigiSweep.validAddress(assetAddress)) {
             return showError(coinAddress + " is not a valid address");
         }
 
         //gather address data
-        addressData = await DigiSweep.findFunds(mnemonic);
+        addressData = await DigiSweep[(mnemonic.split(" ").length===1)?'lookupAddress':'findFunds'](mnemonic);
         if (addressData.length === 0) {
             return showError("Mnemonic was never used");
         }
