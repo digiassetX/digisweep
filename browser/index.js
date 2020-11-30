@@ -95,12 +95,16 @@ $(function() {
         $("#processing_page").show();
 
         //send and get txids
-        let txids = await DigiSweep.sendTXs(addressData, coinAddress, assetAddress);
-        $("#complete_txid_message").html('<p>' + txids.join("</p><p>") + '</p>');
+        try {
+            let txids = await DigiSweep.sendTXs(addressData, coinAddress, assetAddress);
+            $("#complete_txid_message").html('<p>' + txids.join("</p><p>") + '</p>');
 
-        //show complete_page
-        $(".page").hide();
-        $("#complete_txid_page").show();
+            //show complete_page
+            $(".page").hide();
+            $("#complete_txid_page").show();
+        } catch (e) {
+            showError("unexpected error");
+        }
     });
 
 
@@ -110,11 +114,15 @@ $(function() {
         $("#processing_page").show();
 
         //send and get txids
-        let messages = await DigiSweep.buildTXs(addressData, coinAddress, assetAddress);
-        $("#complete_build_message").html('<p>' + messages.join("</p><p>") + '</p>');
+        try {
+            let messages = await DigiSweep.buildTXs(addressData, coinAddress, assetAddress);
+            $("#complete_build_message").html('<p>' + messages.join("</p><p>") + '</p>');
 
-        //show complete_page
-        $(".page").hide();
-        $("#complete_build_page").show();
+            //show complete_page
+            $(".page").hide();
+            $("#complete_build_page").show();
+        } catch (e) {
+            showError("unexpected error");
+        }
     });
 });
