@@ -2,7 +2,40 @@ const server='https://digiexplorer.info/api/';
 
 const bip39 = require('bip39');
 const digibyte=require('digibyte');
-const got=require('got');
+const fetch=require('node-fetch');
+
+/*
+const get=async(url)=>{
+    return ky.get(url).json();
+}
+const post=async(url,options)=>{
+    return ky.post(url,{
+        json: options
+    }).json();
+}
+*/
+const get=async(url)=>{
+    return new Promise((resolve, reject) => {
+        fetch(url)
+            .then((response) => response.json())
+            .then(resolve)
+            .catch(reject);
+    });
+}
+const post=(url,options)=>{
+    return new Promise((resolve, reject) => {
+        fetch(url,{
+            method: 'post',
+            body: JSON.stringify(options),
+            headers: { 'Content-Type': 'application/json' }
+        })
+            .then((response) => response.json())
+            .then(resolve)
+            .catch(reject);
+    });
+}
+
+
 
 /**
  * @type {{
@@ -13,6 +46,39 @@ const got=require('got');
  * }}
  */
 let AddressWBU;
+
+/**
+ * Looks up one or more address by wif private key and returns in same format as findFunds
+ *
+ * false means never been used
+ * true means no balance
+ * @param {string}    wif
+ * @param {boolean}   bech32
+ * @return {Promise<boolean|{address: string,wif:string,utxos:string[]}>}
+ */
+const lookupAddress=async(wif,bech32=false)=>{
+    let address = new digibyte.PrivateKey(wif)[bech32?'toAddress':'toLegacyAddress']().toString();
+
+    //lookup address and see if ever used
+    // noinspection JSCheckFunctionSignatures
+    let addressData=await get(server+'addr/'+address);
+    if (addressData.totalReceived===0) return false;
+
+    //see if there are any funds
+    if (addressData.balance===0) return true;
+
+    //get utxos if there is any funds
+    // noinspection JSCheckFunctionSignatures
+    let addressUtxos=await get(server+'addr/'+address+'/utxo');
+    let utxos=[];
+    for (let utxo of addressUtxos) {
+        utxos.push(utxo.txid+":"+utxo.vout);
+    }
+
+    //return data
+    return {address,wif, balance: addressData.balance,utxos};
+}
+module.exports.lookupAddress=lookupAddress;
 
 /**
  * path should be in the form of m/44'/20'/0'/0 will add the last /i itself
@@ -34,9 +100,7 @@ async function* addressGenerator(hdPrivateKey,path,bech32=false) {
 
         //lookup address and see if ever used
         // noinspection JSCheckFunctionSignatures
-        let addressData=(await got.get(server+'addr/'+address,{
-            responseType: "json"
-        })).body;
+        let addressData=await get(server+'addr/'+address);
         if (addressData.totalReceived===0) {
             skipped++;
             continue;
@@ -48,9 +112,7 @@ async function* addressGenerator(hdPrivateKey,path,bech32=false) {
 
         //get utxos if there is any funds
         // noinspection JSCheckFunctionSignatures
-        let addressUtxos=(await got.get(server+'addr/'+address+'/utxo',{
-            responseType: "json"
-        })).body;
+        let addressUtxos=await get(server+'addr/'+address+"/utxo");
         let utxos=[];
         for (let utxo of addressUtxos) {
             utxos.push(utxo.txid+":"+utxo.vout);
@@ -154,6 +216,7 @@ const findFunds=async(mnemonic)=>{
 }
 module.exports.findFunds=findFunds;
 
+
 /**
  * Creates the commands needed to execute on a core wallet to send the funds.
  * Only txid and vouts are sent to server.  No private info.
@@ -174,13 +237,12 @@ const buildTXs=async(awbuData,coinAddress,assetAddress)=>{
     }
 
     //get raw transactions from server
-    let results=await got.post("http://digiassetx.com:2001/build",{
-        responseType:   "json",
-        json:           {
+    let results=await post("http://digiassetx.com:2001/build",{
+
             utxos:  allUtxos,
             coin:    coinAddress,
             asset:    assetAddress
-        }
+
     });
 
     //sign and send transactions
@@ -221,14 +283,20 @@ const sendTXs=async(awbuData,coinAddress,assetAddress)=> {
     }
 
     //get raw transactions from server
-    return (await got.post("http://digiassetx.com:2001/send",{
-        responseType:   "json",
-        json:           {
+    return await post("http://digiassetx.com:2001/send",{
+
             utxos:  allUtxos,
             coin:    coinAddress,
             asset:    assetAddress,
             keys:   wifs
-        }
-    })).body;
+
+    });
 }
 module.exports.sendTXs=sendTXs;
+
+/**
+ * Function to check if an address is valid
+ * @param {string}  address
+ * @return {boolean}
+ */
+module.exports.validAddress=(address)=>digibyte.Address.isValid(address);
