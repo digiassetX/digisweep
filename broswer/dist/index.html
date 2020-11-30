@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DigiSweep 2.0</title>
+    <link rel="stylesheet" type="text/css" href="ratchet-css/ratchet.min.css">
+    <link rel="stylesheet" type="text/css" href="ratchet-css/ratchet-theme-ios.min.css">
+    <link rel="stylesheet" type="text/css" media="screen and (min-width: 460px)" href="style_big.css">
+    <link rel="stylesheet" type="text/css" media="screen and (max-width: 459px)" href="style_small.css">
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+    <header class="bar bar-nav">
+        <h1 class="title">DigiSweep</h1>
+    </header>
+    <div id="intro_page" class="page">
+        <img id="logo" src="logo.svg"><br>
+        Please note that your private keys never leave your machine or get saved anywhere unless you specifically say otherwise.<br>
+        That said we recommend you read over the code <a href="https://github.com/digiassetX/digisweep">on GitHub</a> and verify this page is being hosted by GitHub<br>
+		This tool takes a 1% cut to cover costs<br>&nbsp;<br>
+        <button id="start">Start</button>
+    </div>
+    <div id="start_page" class="page">
+        <label for="mnemonic">Mnemonic:</label>
+        <input type="text" id="mnemonic">
+
+        <label for="coinaddress">Coin Address:</label>
+        <input type="text" id="coinaddress">
+
+        <label for="assetaddress">Asset Address:</label>
+        <input type="text" id="assetaddress">
+
+        <button id="scan">Scan Mnemonic</button>
+    </div>
+    <div id="scanning_page" class="page">
+        <h1>Scanning</h1>
+        <h5>This will take a long time</h5>
+    </div>
+    <div id="error_page" class="page">
+        <div id="error_message"></div>
+        <button id="back">Back</button>
+    </div>
+    <div id="send_page" class="page">
+        <p>Found <span id="balance"></span> DGB</p>
+        <button id="send">Send funds.  WARNING private keys will be leaked.  If using this function do not reuse the wallet</button>
+        <button id="build">Build commands to send with core wallet.  Private keys will not be leaked.</button>
+    </div>
+    <div id="processing" class="page">
+        <h1>Processing</h1>
+    </div>
+    <div id="complete_txid_page" class="page">
+        <h1>Sent:</h1>
+        <h5>Transaction IDs:</h5>
+        <div id="complete_txid_message"></div>
+    </div>
+    <div id="complete_build_page" class="page">
+        <h1>Built:</h1>
+        <h5>Step 1: Execute the following commands in the debug window of a core wallet.</h5>
+        <div id="complete_build_message"></div>
+        <h5>Step 2: Take the hex value returned and execute</h5>
+        <p>sendrawtransaction hex</p>
+    </div>
+    <script src="min.js"></script>
+</body>
+</html>
