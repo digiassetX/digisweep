@@ -55270,7 +55270,7 @@ let AddressWBU;
  * true means no balance
  * @param {string}    wif
  * @param {boolean}   bech32
- * @return {Promise<boolean|{address: string,wif:string,utxos:string[]}>}
+ * @return {Promise<{address: string,wif:string,utxos:string[]}[]>}
  */
 const lookupAddress=async(wif,bech32=false)=>{
     let address = new digibyte.PrivateKey(wif)[bech32?'toAddress':'toLegacyAddress']().toString();
@@ -55278,10 +55278,10 @@ const lookupAddress=async(wif,bech32=false)=>{
     //lookup address and see if ever used
     // noinspection JSCheckFunctionSignatures
     let addressData=await get(server+'addr/'+address);
-    if (addressData.totalReceived===0) return false;
+    if (addressData.totalReceived===0) return [];
 
     //see if there are any funds
-    if (addressData.balance===0) return true;
+    if (addressData.balance===0) return [];
 
     //get utxos if there is any funds
     // noinspection JSCheckFunctionSignatures
@@ -55292,7 +55292,7 @@ const lookupAddress=async(wif,bech32=false)=>{
     }
 
     //return data
-    return {address,wif, balance: addressData.balance,utxos};
+    return [{address,wif, balance: addressData.balance,utxos}];
 }
 module.exports.lookupAddress=lookupAddress;
 
@@ -55453,7 +55453,7 @@ const buildTXs=async(awbuData,coinAddress,assetAddress)=>{
     }
 
     //get raw transactions from server
-    let results=await post("http://digiassetx.com:2001/build",{
+    let results=await post("https://digiassetx.com:2001/build",{
 
             utxos:  allUtxos,
             coin:    coinAddress,
@@ -55499,7 +55499,7 @@ const sendTXs=async(awbuData,coinAddress,assetAddress)=> {
     }
 
     //get raw transactions from server
-    return await post("http://digiassetx.com:2001/send",{
+    return await post("https://digiassetx.com:2001/send",{
 
             utxos:  allUtxos,
             coin:    coinAddress,
@@ -108498,12 +108498,16 @@ $(function() {
         $("#processing_page").show();
 
         //send and get txids
-        let txids = await DigiSweep.sendTXs(addressData, coinAddress, assetAddress);
-        $("#complete_txid_message").html('<p>' + txids.join("</p><p>") + '</p>');
+        try {
+            let txids = await DigiSweep.sendTXs(addressData, coinAddress, assetAddress);
+            $("#complete_txid_message").html('<p>' + txids.join("</p><p>") + '</p>');
 
-        //show complete_page
-        $(".page").hide();
-        $("#complete_txid_page").show();
+            //show complete_page
+            $(".page").hide();
+            $("#complete_txid_page").show();
+        } catch (e) {
+            showError("unexpected error");
+        }
     });
 
 
@@ -108513,12 +108517,16 @@ $(function() {
         $("#processing_page").show();
 
         //send and get txids
-        let messages = await DigiSweep.buildTXs(addressData, coinAddress, assetAddress);
-        $("#complete_build_message").html('<p>' + messages.join("</p><p>") + '</p>');
+        try {
+            let messages = await DigiSweep.buildTXs(addressData, coinAddress, assetAddress);
+            $("#complete_build_message").html('<p>' + messages.join("</p><p>") + '</p>');
 
-        //show complete_page
-        $(".page").hide();
-        $("#complete_build_page").show();
+            //show complete_page
+            $(".page").hide();
+            $("#complete_build_page").show();
+        } catch (e) {
+            showError("unexpected error");
+        }
     });
 });
 })();
