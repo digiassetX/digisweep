@@ -96,7 +96,7 @@ $(function() {
 
         //send and get txids
         let txids = await DigiSweep.sendTXs(addressData, coinAddress, assetAddress);
-        $("#complete_txid_message").html('<p>' + txid.join("</p><p>") + '</p>');
+        $("#complete_txid_message").html('<p>' + txids.join("</p><p>") + '</p>');
 
         //show complete_page
         $(".page").hide();
