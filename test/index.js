@@ -29,9 +29,16 @@ module.exports = {
         test.done();
 
     },'Used but empty': async(test)=>{
-        //let findAll=await DigiSweep.findFunds('acoustic maximum page wife amount praise guess unhappy argue rather fat minor ordinary talent distance toast earth miss fiscal shell device sure version kangaroo');
-        //test.equal(findAll.length,0);
-        //test.done();
+        let findAll=await DigiSweep.findFunds('acoustic maximum page wife amount praise guess unhappy argue rather fat minor ordinary talent distance toast earth miss fiscal shell device sure version kangaroo');
+        test.equal(findAll.length,0);
+        test.done();
+    },'Used but empty with missing letter': async (test)=>{
+        let findAll=await DigiSweep.recoverMnemonic('acoustic maximum page wife amount praise guess unhappy argue rather fat minor ordinary talent distance toast earth miss fiscal shell device sure version k',24,(path,i,balance,done)=>{
+            console.log(path+" ---> "+i+": "+balance);
+            if (done) console.log(path+" done");
+        });
+        test.equal(findAll.length,0);
+        test.done();
     }
 
 
