@@ -21,13 +21,21 @@
         <button id="start">Start</button>
     </div>
     <div id="start_page" class="page">
-        <label for="mnemonic">Mnemonic:</label>
+        <label for="mnemonic">Mnemonic or Private Key:</label>
         <input type="text" id="mnemonic">
+        <select id="mnemonic_length">
+            <option value="1">Private Key</option>
+            <option value="12">12 words</option>
+            <option value="15">15 words</option>
+            <option value="18">18 words</option>
+            <option value="21">21 words</option>
+            <option value="24">24 words</option>
+        </select>
 
-        <label for="coinaddress">Coin Address:</label>
+        <label for="coinaddress">Coin Address(Where do you want coins to be sent to):</label>
         <input type="text" id="coinaddress">
 
-        <label for="assetaddress">Asset Address:</label>
+        <label for="assetaddress">Asset Address(can be same as coin address):</label>
         <input type="text" id="assetaddress">
 
         <button id="scan">Scan Mnemonic</button>
@@ -35,6 +43,7 @@
     <div id="scanning_page" class="page">
         <h1>Scanning</h1>
         <h5>This will take a long time</h5>
+        <div id="scan_progress" class="table"></div>
     </div>
     <div id="error_page" class="page">
         <div id="error_message"></div>

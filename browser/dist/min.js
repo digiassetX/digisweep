@@ -55219,6 +55219,7 @@ const server='https://digiexplorer.info/api/';
 const bip39 = __webpack_require__(6736);
 const digibyte=__webpack_require__(7899);
 const fetch=__webpack_require__(759);
+const dummyFunc=()=>{};
 
 /*
 const get=async(url)=>{
@@ -55301,13 +55302,16 @@ module.exports.lookupAddress=lookupAddress;
  * @param {HDPrivateKey}    hdPrivateKey
  * @param {string}          path
  * @param {boolean}         bech32
+ * @param {function(pathName:string,i:int,balance:number,done:boolean)}  callback
+ * @param {string}         pathName
  * @return {Generator<{address: string,wif:string,utxos:string[]}>}
  */
-async function* addressGenerator(hdPrivateKey,path,bech32=false) {
+async function* addressGenerator(hdPrivateKey,path,bech32=false,callback=dummyFunc,pathName=path) {
     let i=0;
 
     let derived = hdPrivateKey.derive(path);
     let skipped=0;
+    let total=0;
     while (skipped<20) {
         //compute next addresses info
         let privateKey=derived.deriveChild(i++).privateKey;
@@ -55334,31 +55338,119 @@ async function* addressGenerator(hdPrivateKey,path,bech32=false) {
             utxos.push(utxo.txid+":"+utxo.vout);
         }
 
+        //call callback
+        total+=addressData.balance;
+        callback(pathName,i-1,total,false);
+
         //return data
         let output={address,wif, balance: addressData.balance,utxos};
         yield output;
     }
+    callback(pathName,i-1,total,true);
 }
 module.exports.addressGenerator=addressGenerator;
+
+
+const recoverMnemonic=async(mnemonicPart,length,callback)=>{
+
+    //split in to individual words
+    let knownWords=mnemonicPart.trim().split(/[\s]+/g);
+    let providedLength=knownWords.length;
+
+    //see if valid mnemonic
+    if (providedLength>length) throw "Mnemonic longer then desired length";
+    if ((length===providedLength)&&(bip39.validateMnemonic(mnemonicPart))) return await findFunds(mnemonicPart,callback);
+
+    //determine language
+    let possibleLanguages=[];
+    for (let language in bip39.wordlists) possibleLanguages.push(language);
+    let i=0;
+    while (possibleLanguages.length>2) {//2 because each language is listed twice short and long format
+        //check word i from knownWords and see what languages it is possible in
+        let keepList=[];
+        for (let language of possibleLanguages) {
+            if (bip39.wordlists[language].indexOf(knownWords[i])!==-1) {
+                //word not in list so remove from language list
+                keepList.push(language);
+            }
+        }
+        possibleLanguages=keepList;
+        i++;
+    }
+    if (possibleLanguages.length===0) throw "Mnemonic words not from recognized language";
+    let language=possibleLanguages[0];
+
+    //see if last word is complete
+    let searches=[];
+    let lastIndex=knownWords.length-1;
+    if (bip39.wordlists[language].indexOf(knownWords[lastIndex])===-1) {
+        //incomplete so get list of good words
+        let partial=knownWords.pop();
+        let good=knownWords.join(" ");
+
+        // see what words last could be
+        for (let word of bip39.wordlists[language]) {
+            if (word.startsWith(partial)) searches.push(good+" "+word);
+        }
+    }
+
+    //see if missing words
+    let neededExtraWords=length-providedLength;
+    for (let i=0; i<neededExtraWords; i++) {
+        //clone search list
+        let oldSearches=searches;
+        searches=[];
+
+        //for each search value add every possible word
+        for (let word of bip39.wordlists[language]) {
+            for (let search of oldSearches) {
+                searches.push(search+" "+word);
+            }
+        }
+    }
+
+    //eliminate all invalid mnemonics
+    let oldSearches=searches;
+    searches=[];
+    for (let search of oldSearches) {
+        if (bip39.validateMnemonic(search,bip39.wordlists[language])) searches.push(search);
+    }
+
+    //check each valid mnemonic for funds
+    let results=[];
+    let useModified=(searches.length>1);
+    for (let mnemonic of searches) {
+        let modifiedCallback=(pathName,i,balance,done)=>{
+            callback(mnemonic+": "+pathName,i,balance,done);
+        }
+        let result=await findFunds(mnemonic,useModified?modifiedCallback:callback);
+        if (result.length>0) results.push(...result);
+    }
+
+    return results;
+}
+module.exports.recoverMnemonic=recoverMnemonic;
 
 
 /**
  * Searches all known paths and returns Address, WIF, Balance and UTXOs
  * Only Addresses are sent to server.  No private info.
  * @param {string}  mnemonic
+ * @param {function(pathName:string,i:int,balance:number,done:boolean)}  callback
  * @return {Promise<AddressWBU[]>}
  */
-const findFunds=async(mnemonic)=>{
+const findFunds=async(mnemonic,callback=dummyFunc)=>{
     let seed = await bip39.mnemonicToSeed(mnemonic);
     let results=[];
     let gens=[];
 
+
     //function to check if address is used
-    const genStandard=async(hdKey,path,account,bech32)=>{
+    const genStandard=async(hdKey,path,account,bech32,pathName)=>{
         let found=false;
 
         //external addresses
-        let genE=addressGenerator(hdKey,path+account+"'/0",bech32);
+        let genE=addressGenerator(hdKey,path+account+"'/0",bech32,callback,pathName);
         let nextE=await genE.next();
         if (!nextE.done) {
             results.push(nextE.value);
@@ -55366,7 +55458,7 @@ const findFunds=async(mnemonic)=>{
         }
 
         //change addresses
-        let genC=addressGenerator(hdKey,path+account+"'/1",bech32);
+        let genC=addressGenerator(hdKey,path+account+"'/1",bech32,callback,pathName);
         let nextC=await genC.next();
         if (!nextC.done) {
             results.push(nextC.value);
@@ -55390,30 +55482,34 @@ const findFunds=async(mnemonic)=>{
 
     //Standard BIP44
     let account=0;
-    do {} while (await genStandard(sHdKey,"m/44'/20'/",account++,false));
+    do {} while (await genStandard(sHdKey,"m/44'/20'/",account,false,"m/44h/20h/"+(account++)+"h"));
 
     //Digi-ID/AntumID asset address(must come after BIP44)
     if (account<=11) {
-        let gen=addressGenerator(sHdKey,"m/44'/20'/11'/0");
+        let gen=addressGenerator(sHdKey,"m/44'/20'/11'/0",false,callback,"m/44h/20h/11h");
         let next=await gen.next();
         if (!next.done) results.push(next.value);
     }
 
     //BIP84
     account=0;
-    do {} while (await genStandard(sHdKey,"m/84'/20'/",account++,true));
+    do {} while (await genStandard(sHdKey,"m/84'/20'/",account,true,"m/84h/20h/"+(account++)+"h"));
 
     //DigiByte Mobile Legacy
     account=0;
-    do {} while (await genStandard(bHdKey,"m/",account++,false));
+    do {} while (await genStandard(bHdKey,"m/",account,false,"m!/"+(account++)+"h"));
 
     //DigiByte Mobile Bech32??
     account=0;
-    do {} while (await genStandard(bHdKey,"m/",account++,true));
+    do {} while (await genStandard(bHdKey,"m/",account,true,"m!/"+(account++)+"h"));
+
+    //DigiByte Go
+    account=0;
+    do {} while (await genStandard(sHdKey,"m/44'/0'/",account,false,"m/44h/0h/"+(account++)+"h"));
 
     //Doge Coin
     account=0;
-    do {} while (await genStandard(bHdKey,"m/44'/3'/",account++,false));
+    do {} while (await genStandard(bHdKey,"m/44'/3'/",account,false,"m/44h/3h/"+(account++)+"h"));
 
     //let generators search complete path
     for (let gen of gens) {
@@ -108436,36 +108532,74 @@ $(function() {
      |___/\__\__,_|_|  \__| |_| \__,_\__, \___|
                                      |___/
      */
+    $("#mnemonic").keyup(()=>{
+        let mnemonicLength = $("#mnemonic").val().trim().split(/[\s]+/).length;
+        if (mnemonicLength>1) {
+            let nextBiggest=Math.min(24,Math.max(12,Math.ceil(mnemonicLength/3)*3));
+            console.log(nextBiggest);
+            $("#mnemonic_length").val(nextBiggest);
+        } else {
+            console.log(1);
+            $("#mnemonic_length").val("1");
+        }
+    });
+
     $("#scan").click(async () => {
-        //show scanning screen
-        $(".page").hide();
-        $("#scanning_page").show();
+        try {
+            //show scanning screen
+            $(".page").hide();
+            $("#scanning_page").show();
 
-        //get inputs
-        let mnemonic = $("#mnemonic").val().trim();
-        coinAddress = $("#coinaddress").val().trim();
-        assetAddress = $("#assetaddress").val().trim();
+            //get desired length
+            let length = $("#mnemonic_length").val();
 
-        //validate inputs
-        if (!DigiSweep.validAddress(coinAddress)) {
-            return showError(coinAddress + " is not a valid address");
+            //get inputs
+            let mnemonic = $("#mnemonic").val().trim();
+            coinAddress = $("#coinaddress").val().trim();
+            assetAddress = $("#assetaddress").val().trim();
+
+            //validate inputs
+            if (!DigiSweep.validAddress(coinAddress)) throw coinAddress + " is not a valid address";
+            if (!DigiSweep.validAddress(assetAddress)) throw coinAddress + " is not a valid address";
+
+            //gather address data
+            if (length === 1) {
+                //private key
+                addressData = await DigiSweep.lookupAddress(mnemonic);
+                if (addressData.length === 0) throw "Private key was never used";
+            } else {
+                //rebuild progress html every 2 sec
+                let progressData = {};
+                let timer = setInterval(() => {
+                    let html = '<div class="row"><div class="cell header">Path</div><div class="cell header">Addresses</div><div class="cell">Balance</div><div class="cell">Done</div></div>';
+                    for (let pathName in progressData) {
+                        html += progressData[pathName];
+                    }
+                    $("#scan_progress").html(html);
+                }, 2000);
+
+                //gather data and update progress
+                addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done) => {
+                    console.log(pathName,i,balance,done);
+                    progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
+                });
+
+                //clear timer and handle common error
+                clearInterval(timer);
+                if (addressData.length === 0) throw "Mnemonic was never used";
+            }
+
+            //gather balance
+            let balanceTotal = 0;
+            for (let {balance} of addressData) balanceTotal += balance;
+            $("#balance").html(balanceTotal.toFixed(8));
+
+            //show send_page
+            $(".page").hide();
+            $("#send_page").show();
+        } catch (e) {
+            showError(e.toString());
         }
-        if (!DigiSweep.validAddress(assetAddress)) {
-            return showError(coinAddress + " is not a valid address");
-        }
-
-        //gather address data
-        addressData = await DigiSweep[(mnemonic.split(" ").length===1)?'lookupAddress':'findFunds'](mnemonic);
-        if (addressData.length === 0) {
-            return showError("Mnemonic was never used");
-        }
-        let balanceTotal = 0;
-        for (let {balance} of addressData) balanceTotal += balance;
-        $("#balance").html(balanceTotal.toFixed(8));
-
-        //show send_page
-        $(".page").hide();
-        $("#send_page").show();
     });
 
     /*___                   ___

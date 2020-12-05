@@ -33,36 +33,74 @@ $(function() {
      |___/\__\__,_|_|  \__| |_| \__,_\__, \___|
                                      |___/
      */
+    $("#mnemonic").keyup(()=>{
+        let mnemonicLength = $("#mnemonic").val().trim().split(/[\s]+/).length;
+        if (mnemonicLength>1) {
+            let nextBiggest=Math.min(24,Math.max(12,Math.ceil(mnemonicLength/3)*3));
+            console.log(nextBiggest);
+            $("#mnemonic_length").val(nextBiggest);
+        } else {
+            console.log(1);
+            $("#mnemonic_length").val("1");
+        }
+    });
+
     $("#scan").click(async () => {
-        //show scanning screen
-        $(".page").hide();
-        $("#scanning_page").show();
+        try {
+            //show scanning screen
+            $(".page").hide();
+            $("#scanning_page").show();
 
-        //get inputs
-        let mnemonic = $("#mnemonic").val().trim();
-        coinAddress = $("#coinaddress").val().trim();
-        assetAddress = $("#assetaddress").val().trim();
+            //get desired length
+            let length = $("#mnemonic_length").val();
 
-        //validate inputs
-        if (!DigiSweep.validAddress(coinAddress)) {
-            return showError(coinAddress + " is not a valid address");
+            //get inputs
+            let mnemonic = $("#mnemonic").val().trim();
+            coinAddress = $("#coinaddress").val().trim();
+            assetAddress = $("#assetaddress").val().trim();
+
+            //validate inputs
+            if (!DigiSweep.validAddress(coinAddress)) throw coinAddress + " is not a valid address";
+            if (!DigiSweep.validAddress(assetAddress)) throw coinAddress + " is not a valid address";
+
+            //gather address data
+            if (length === 1) {
+                //private key
+                addressData = await DigiSweep.lookupAddress(mnemonic);
+                if (addressData.length === 0) throw "Private key was never used";
+            } else {
+                //rebuild progress html every 2 sec
+                let progressData = {};
+                let timer = setInterval(() => {
+                    let html = '<div class="row"><div class="cell header">Path</div><div class="cell header">Addresses</div><div class="cell">Balance</div><div class="cell">Done</div></div>';
+                    for (let pathName in progressData) {
+                        html += progressData[pathName];
+                    }
+                    $("#scan_progress").html(html);
+                }, 2000);
+
+                //gather data and update progress
+                addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done) => {
+                    console.log(pathName,i,balance,done);
+                    progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
+                });
+
+                //clear timer and handle common error
+                clearInterval(timer);
+                if (addressData.length === 0) throw "Mnemonic was never used";
+            }
+
+            //gather balance
+            let balanceTotal = 0;
+            for (let {balance} of addressData) balanceTotal += balance;
+            $("#balance").html(balanceTotal.toFixed(8));
+
+            //show send_page
+            $(".page").hide();
+            $("#send_page").show();
+        } catch (e) {
+            showError(e.toString());
         }
-        if (!DigiSweep.validAddress(assetAddress)) {
-            return showError(coinAddress + " is not a valid address");
-        }
-
-        //gather address data
-        addressData = await DigiSweep[(mnemonic.split(" ").length===1)?'lookupAddress':'findFunds'](mnemonic);
-        if (addressData.length === 0) {
-            return showError("Mnemonic was never used");
-        }
-        let balanceTotal = 0;
-        for (let {balance} of addressData) balanceTotal += balance;
-        $("#balance").html(balanceTotal.toFixed(8));
-
-        //show send_page
-        $(".page").hide();
-        $("#send_page").show();
     });
 
     /*___                   ___

@@ -16,83 +16,25 @@
 	padding: 			10px;
 }
 
-#pathsTable{
+.table{
 	display: 			table;
 	width: 				100%;
+	overflow-scrolling: auto;
 }
-.pathsRow{
+.row{
 	display: 			table-row;	
 }
-.pathsHead{
+.head{
 	display: 			table-cell;
 	border: 			1px solid #999999;
 	background-color: 	#888888;	
 }
-.pathsCell{
+.cell{
 	display: 			table-cell;
 	border: 			1px solid #999999;
 	background-color: 	#FFFFFF;
 }
 
-#common_path_header{
-	font-size:			22px;
-}
-#balanceTable{
-	display: 			table;
-	width: 				100%;
-}
-.balanceRow{
-	display: 			table-row;
-}
-.balanceHead{
-	display: 			table-cell;
-	border: 			1px solid #999999;
-	background-color: 	#888888;
-}
-.balanceCellAddress{
-	display: 			table-cell;
-	border: 			1px solid #999999;
-	background-color: 	#FFFFFF;
-}
-.balanceCellValue{
-	display: 			table-cell;
-	padding: 			3px 10px;
-	border: 			1px solid #999999;
-}
-
-#recipientsTable{
-	display: 			table;
-	width:				100%;
-}
-.recipientsRow{
-	display: 			table-row;	
-}
-.recipientsHead{
-	display: 			table-cell;
-	padding: 			3px 10px;
-	border: 			1px solid #999999;
-	background-color: 	#888888;
-}
-.recipientsCellAddress{
-	display: 			table-cell;
-	padding: 			3px 10px;
-	border: 			1px solid #999999;
-	background-color: 	#FFFFFF;
-}
-.recipientsCellAmount{
-	display: 			table-cell;
-	padding: 			3px 10px;
-	border: 			1px solid #999999;
-}
-#recipientsNewAddress{
-	padding:			0px;
-	border: 			0px;
-}
-
-
-#recipientsAdd {
-	width: 100px;
-}
 .flex-container {
 	display: flex;
 	width: 100%;
@@ -141,4 +83,12 @@
 }
 .assetValue {
 	font-weight:		normal;	
+}
+
+#mnemonic {
+	width: calc(100% - 120px);
+}
+#mnemonic_length {
+	width: 110px;
+	padding: 10px 10px;
 }

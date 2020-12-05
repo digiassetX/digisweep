@@ -202,11 +202,12 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
 
     //check each valid mnemonic for funds
     let results=[];
+    let useModified=(searches.length>1);
     for (let mnemonic of searches) {
         let modifiedCallback=(pathName,i,balance,done)=>{
             callback(mnemonic+": "+pathName,i,balance,done);
         }
-        let result=await findFunds(mnemonic,modifiedCallback);
+        let result=await findFunds(mnemonic,useModified?modifiedCallback:callback);
         if (result.length>0) results.push(...result);
     }
 
@@ -265,7 +266,7 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
 
     //Standard BIP44
     let account=0;
-    do {} while (await genStandard(sHdKey,"m/44'/20'/",account++,false,"m/44h/20h/"+account+"h"));
+    do {} while (await genStandard(sHdKey,"m/44'/20'/",account,false,"m/44h/20h/"+(account++)+"h"));
 
     //Digi-ID/AntumID asset address(must come after BIP44)
     if (account<=11) {
@@ -276,23 +277,23 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
 
     //BIP84
     account=0;
-    do {} while (await genStandard(sHdKey,"m/84'/20'/",account++,true,"m/84h/20h/"+account+"h"));
+    do {} while (await genStandard(sHdKey,"m/84'/20'/",account,true,"m/84h/20h/"+(account++)+"h"));
 
     //DigiByte Mobile Legacy
     account=0;
-    do {} while (await genStandard(bHdKey,"m/",account++,false,"m!/"+account+"h"));
+    do {} while (await genStandard(bHdKey,"m/",account,false,"m!/"+(account++)+"h"));
 
     //DigiByte Mobile Bech32??
     account=0;
-    do {} while (await genStandard(bHdKey,"m/",account++,true,"m!/"+account+"h"));
+    do {} while (await genStandard(bHdKey,"m/",account,true,"m!/"+(account++)+"h"));
 
     //DigiByte Go
     account=0;
-    do {} while (await genStandard(sHdKey,"m/44'/0'/",account++,false,"m/44h/0h/"+account+"h"));
+    do {} while (await genStandard(sHdKey,"m/44'/0'/",account,false,"m/44h/0h/"+(account++)+"h"));
 
     //Doge Coin
     account=0;
-    do {} while (await genStandard(bHdKey,"m/44'/3'/",account++,false,"m/44h/3h/"+account+"h"));
+    do {} while (await genStandard(bHdKey,"m/44'/3'/",account,false,"m/44h/3h/"+(account++)+"h"));
 
     //let generators search complete path
     for (let gen of gens) {
