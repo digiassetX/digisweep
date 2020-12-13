@@ -37,10 +37,8 @@ $(function() {
         let mnemonicLength = $("#mnemonic").val().trim().split(/[\s]+/).length;
         if (mnemonicLength>1) {
             let nextBiggest=Math.min(24,Math.max(12,Math.ceil(mnemonicLength/3)*3));
-            console.log(nextBiggest);
             $("#mnemonic_length").val(nextBiggest);
         } else {
-            console.log(1);
             $("#mnemonic_length").val("1");
         }
     });
@@ -72,7 +70,7 @@ $(function() {
                 //rebuild progress html every 2 sec
                 let progressData = {};
                 let timer = setInterval(() => {
-                    let html = '<div class="row"><div class="cell header">Path</div><div class="cell header">Addresses</div><div class="cell">Balance</div><div class="cell">Done</div></div>';
+                    let html = '<div class="row"><div class="cell header">Path</div><div class="cell header">Addresses Scanned</div><div class="cell">Balance</div><div class="cell">Done</div></div>';
                     for (let pathName in progressData) {
                         html += progressData[pathName];
                     }
@@ -81,8 +79,8 @@ $(function() {
 
                 //gather data and update progress
                 addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done) => {
-                    console.log(pathName,i,balance,done);
-                    progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
+                    console.log(pathName, i, balance, done);
+                    progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
                 });
 
                 //clear timer and handle common error

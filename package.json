@@ -1,6 +1,6 @@
 {
   "name": "digisweep2",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Allows easy recovery of DigiByte coins and assets",
   "main": "index.js",
   "scripts": {

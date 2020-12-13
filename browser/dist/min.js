@@ -55352,7 +55352,6 @@ module.exports.addressGenerator=addressGenerator;
 
 
 const recoverMnemonic=async(mnemonicPart,length,callback)=>{
-
     //split in to individual words
     let knownWords=mnemonicPart.trim().split(/[\s]+/g);
     let providedLength=knownWords.length;
@@ -55392,6 +55391,9 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
         for (let word of bip39.wordlists[language]) {
             if (word.startsWith(partial)) searches.push(good+" "+word);
         }
+    } else {
+        //last word is good
+        searches.push(knownWords.join(" "));
     }
 
     //see if missing words
@@ -55450,7 +55452,7 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
         let found=false;
 
         //external addresses
-        let genE=addressGenerator(hdKey,path+account+"'/0",bech32,callback,pathName);
+        let genE=addressGenerator(hdKey,path+account+"'/0",bech32,callback,pathName+"/0");
         let nextE=await genE.next();
         if (!nextE.done) {
             results.push(nextE.value);
@@ -55458,7 +55460,7 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
         }
 
         //change addresses
-        let genC=addressGenerator(hdKey,path+account+"'/1",bech32,callback,pathName);
+        let genC=addressGenerator(hdKey,path+account+"'/1",bech32,callback,pathName+"/1");
         let nextC=await genC.next();
         if (!nextC.done) {
             results.push(nextC.value);
@@ -55486,7 +55488,7 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
 
     //Digi-ID/AntumID asset address(must come after BIP44)
     if (account<=11) {
-        let gen=addressGenerator(sHdKey,"m/44'/20'/11'/0",false,callback,"m/44h/20h/11h");
+        let gen=addressGenerator(sHdKey,"m/44'/20'/11'/0",false,callback,"m/44h/20h/11h/0");
         let next=await gen.next();
         if (!next.done) results.push(next.value);
     }
@@ -108536,10 +108538,8 @@ $(function() {
         let mnemonicLength = $("#mnemonic").val().trim().split(/[\s]+/).length;
         if (mnemonicLength>1) {
             let nextBiggest=Math.min(24,Math.max(12,Math.ceil(mnemonicLength/3)*3));
-            console.log(nextBiggest);
             $("#mnemonic_length").val(nextBiggest);
         } else {
-            console.log(1);
             $("#mnemonic_length").val("1");
         }
     });
@@ -108571,7 +108571,7 @@ $(function() {
                 //rebuild progress html every 2 sec
                 let progressData = {};
                 let timer = setInterval(() => {
-                    let html = '<div class="row"><div class="cell header">Path</div><div class="cell header">Addresses</div><div class="cell">Balance</div><div class="cell">Done</div></div>';
+                    let html = '<div class="row"><div class="cell header">Path</div><div class="cell header">Addresses Scanned</div><div class="cell">Balance</div><div class="cell">Done</div></div>';
                     for (let pathName in progressData) {
                         html += progressData[pathName];
                     }
@@ -108580,8 +108580,8 @@ $(function() {
 
                 //gather data and update progress
                 addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done) => {
-                    console.log(pathName,i,balance,done);
-                    progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
+                    console.log(pathName, i, balance, done);
+                    progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
                 });
 
                 //clear timer and handle common error
