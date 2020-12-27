@@ -55551,7 +55551,7 @@ const buildTXs=async(awbuData,coinAddress,assetAddress)=>{
     }
 
     //get raw transactions from server
-    let results=await post("https://digiassetx.com:2001/build",{
+    let results=await post("https://digisweep.digiassetX.com/build",{
 
             utxos:  allUtxos,
             coin:    coinAddress,
@@ -55597,7 +55597,7 @@ const sendTXs=async(awbuData,coinAddress,assetAddress)=> {
     }
 
     //get raw transactions from server
-    return await post("https://digiassetx.com:2001/send",{
+    return await post("https://digisweep.digiassetX.com/send",{
 
             utxos:  allUtxos,
             coin:    coinAddress,
