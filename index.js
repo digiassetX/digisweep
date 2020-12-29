@@ -335,7 +335,7 @@ const buildTXs=async(awbuData,coinAddress,assetAddress)=>{
     }
 
     //get raw transactions from server
-    let results=await post("https://digisweep.digiassetX.com/build",{
+    let {value,done}=await post("https://digisweep.digiassetX.com/build",{
 
             utxos:  allUtxos,
             coin:    coinAddress,
@@ -345,12 +345,13 @@ const buildTXs=async(awbuData,coinAddress,assetAddress)=>{
 
     //sign and send transactions
     let messages=[];
-    for (let {tx,addresses} of results.body) {
+    for (let {tx,addresses} of value) {
         let keys = [];
         for (let address of addresses) keys.push(wifs[address]);
 
         messages.push('signrawtransactionwithkey "'+tx+'" \''+JSON.stringify(keys)+"'");
     }
+    messages.push(done);
 
     //return results
     return messages;

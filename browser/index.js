@@ -6,6 +6,7 @@ import 'whatwg-fetch';
 
 const DigiSweep=require('../index');
 const $ = require('jquery');
+const sleep=require('promise-sleep');
 
 let addressData=[];
 let coinAddress;
@@ -43,14 +44,14 @@ $(function() {
         }
     });
 
-    $("#scan").click(async () => {
+    const scanMnemonic=async () => {
         try {
             //show scanning screen
             $(".page").hide();
             $("#scanning_page").show();
 
             //get desired length
-            let length = $("#mnemonic_length").val();
+            let length = parseInt($("#mnemonic_length").val());
 
             //get inputs
             let mnemonic = $("#mnemonic").val().trim();
@@ -79,7 +80,6 @@ $(function() {
 
                 //gather data and update progress
                 addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done) => {
-                    console.log(pathName, i, balance, done);
                     progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
                 });
 
@@ -99,7 +99,15 @@ $(function() {
         } catch (e) {
             showError(e.toString());
         }
+    }
+    $("#complete_build_notdone").click(async()=>{
+        //show pause screen
+        $(".page").hide();
+        $("#pause_page").show();
+        await sleep(60000);
+        await scanMnemonic();
     });
+    $("#scan").click(scanMnemonic);
 
     /*___                   ___
      | __|_ _ _ _ ___ _ _  | _ \__ _ __ _ ___
@@ -152,7 +160,9 @@ $(function() {
         //send and get txids
         try {
             let messages = await DigiSweep.buildTXs(addressData, coinAddress, assetAddress);
+            let done=messages.pop();
             $("#complete_build_message").html('<p>' + messages.join("</p><p>") + '</p>');
+            $("#complete_build_notdone")[done?"hide":"show"]();
 
             //show complete_page
             $(".page").hide();

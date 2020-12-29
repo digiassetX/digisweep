@@ -47265,6 +47265,24 @@ process.umask = function() { return 0; };
 
 /***/ }),
 
+/***/ 8461:
+/***/ (() => {
+
+// sleep sleepTime ms, and pass rs on
+// error will pass immediately
+Promise.prototype.sleep = function(sleepTime) {
+  return this.then(rs => {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve(rs)
+      }, sleepTime)
+    })
+  })
+}
+
+
+/***/ }),
+
 /***/ 9538:
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -55551,7 +55569,7 @@ const buildTXs=async(awbuData,coinAddress,assetAddress)=>{
     }
 
     //get raw transactions from server
-    let results=await post("https://digisweep.digiassetX.com/build",{
+    let {value,done}=await post("https://digisweep.digiassetX.com/build",{
 
             utxos:  allUtxos,
             coin:    coinAddress,
@@ -55561,12 +55579,13 @@ const buildTXs=async(awbuData,coinAddress,assetAddress)=>{
 
     //sign and send transactions
     let messages=[];
-    for (let {tx,addresses} of results.body) {
+    for (let {tx,addresses} of value) {
         let keys = [];
         for (let address of addresses) keys.push(wifs[address]);
 
         messages.push('signrawtransactionwithkey "'+tx+'" \''+JSON.stringify(keys)+"'");
     }
+    messages.push(done);
 
     //return results
     return messages;
@@ -108507,6 +108526,7 @@ window["process"] = browser;
 
 const DigiSweep=__webpack_require__(6270);
 const $ = __webpack_require__(9755);
+const sleep=__webpack_require__(8461);
 
 let addressData=[];
 let coinAddress;
@@ -108544,14 +108564,14 @@ $(function() {
         }
     });
 
-    $("#scan").click(async () => {
+    const scanMnemonic=async () => {
         try {
             //show scanning screen
             $(".page").hide();
             $("#scanning_page").show();
 
             //get desired length
-            let length = $("#mnemonic_length").val();
+            let length = parseInt($("#mnemonic_length").val());
 
             //get inputs
             let mnemonic = $("#mnemonic").val().trim();
@@ -108580,7 +108600,6 @@ $(function() {
 
                 //gather data and update progress
                 addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done) => {
-                    console.log(pathName, i, balance, done);
                     progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
                 });
 
@@ -108600,7 +108619,15 @@ $(function() {
         } catch (e) {
             showError(e.toString());
         }
+    }
+    $("#complete_build_notdone").click(async()=>{
+        //show pause screen
+        $(".page").hide();
+        $("#pause_page").show();
+        await sleep(60000);
+        await scanMnemonic();
     });
+    $("#scan").click(scanMnemonic);
 
     /*___                   ___
      | __|_ _ _ _ ___ _ _  | _ \__ _ __ _ ___
@@ -108653,7 +108680,9 @@ $(function() {
         //send and get txids
         try {
             let messages = await DigiSweep.buildTXs(addressData, coinAddress, assetAddress);
+            let done=messages.pop();
             $("#complete_build_message").html('<p>' + messages.join("</p><p>") + '</p>');
+            $("#complete_build_notdone")[done?"hide":"show"]();
 
             //show complete_page
             $(".page").hide();
