@@ -55238,6 +55238,8 @@ const bip39 = __webpack_require__(6736);
 const digibyte=__webpack_require__(7899);
 const fetch=__webpack_require__(759);
 const dummyFunc=()=>{};
+const shortSearch=5;
+const maxSkipped=100;
 
 /*
 const get=async(url)=>{
@@ -55320,17 +55322,20 @@ module.exports.lookupAddress=lookupAddress;
  * @param {HDPrivateKey}    hdPrivateKey
  * @param {string}          path
  * @param {boolean}         bech32
- * @param {function(pathName:string,i:int,balance:number,done:boolean)}  callback
+ * @param {function(pathName:string,i:int,balance:number,done:boolean,used:boolean)}  callback
  * @param {string}         pathName
  * @return {Generator<{address: string,wif:string,utxos:string[]}>}
  */
 async function* addressGenerator(hdPrivateKey,path,bech32=false,callback=dummyFunc,pathName=path) {
     let i=0;
-
+    let used=false;
     let derived = hdPrivateKey.derive(path);
     let skipped=0;
     let total=0;
-    while (skipped<20) {
+    while (
+        (i<shortSearch)||                       //search at lease the first fiew entries
+        (used&&(skipped<maxSkipped))            //if any found then search until max Skipped before giving up
+    ) {
         //compute next addresses info
         let privateKey=derived.deriveChild(i++).privateKey;
         let address=privateKey[bech32?'toAddress':'toLegacyAddress']().toString();
@@ -55344,6 +55349,7 @@ async function* addressGenerator(hdPrivateKey,path,bech32=false,callback=dummyFu
             continue;
         }
         skipped=0;
+        used=true;
 
         //see if there are any funds
         if (addressData.balance===0) continue;
@@ -55358,13 +55364,13 @@ async function* addressGenerator(hdPrivateKey,path,bech32=false,callback=dummyFu
 
         //call callback
         total+=addressData.balance;
-        callback(pathName,i-1,total,false);
+        callback(pathName,i-1,total,false,used);
 
         //return data
         let output={address,wif, balance: addressData.balance,utxos};
         yield output;
     }
-    callback(pathName,i-1,total,true);
+    callback(pathName,i-1,total,true,used);
 }
 module.exports.addressGenerator=addressGenerator;
 
@@ -55440,8 +55446,8 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
     let results=[];
     let useModified=(searches.length>1);
     for (let mnemonic of searches) {
-        let modifiedCallback=(pathName,i,balance,done)=>{
-            callback(mnemonic+": "+pathName,i,balance,done);
+        let modifiedCallback=(pathName,i,balance,done,used)=>{
+            callback(mnemonic+": "+pathName,i,balance,done,used);
         }
         let result=await findFunds(mnemonic,useModified?modifiedCallback:callback);
         if (result.length>0) results.push(...result);
@@ -55456,7 +55462,7 @@ module.exports.recoverMnemonic=recoverMnemonic;
  * Searches all known paths and returns Address, WIF, Balance and UTXOs
  * Only Addresses are sent to server.  No private info.
  * @param {string}  mnemonic
- * @param {function(pathName:string,i:int,balance:number,done:boolean)}  callback
+ * @param {function(pathName:string,i:int,balance:number,done:boolean,used:boolean)}  callback
  * @return {Promise<AddressWBU[]>}
  */
 const findFunds=async(mnemonic,callback=dummyFunc)=>{
@@ -55501,35 +55507,57 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
     const bHdKey=digibyte.HDPrivateKey.fromSeed(seed, undefined,'DigiByte seed');
 
     //Standard BIP44
-    let account=0;
-    do {} while (await genStandard(sHdKey,"m/44'/20'/",account,false,"m/44h/20h/"+(account++)+"h"));
+    const bip44search=new Promise(async(resolve, reject) => {
+        let account = 0;
+        do {
+        } while (await genStandard(sHdKey, "m/44'/20'/", account, false, "m/44h/20h/" + (account++) + "h"));
 
-    //Digi-ID/AntumID asset address(must come after BIP44)
-    if (account<=11) {
-        let gen=addressGenerator(sHdKey,"m/44'/20'/11'/0",false,callback,"m/44h/20h/11h/0");
-        let next=await gen.next();
-        if (!next.done) results.push(next.value);
-    }
+        //Digi-ID/AntumID asset address(must come after BIP44)
+        if (account <= 11) {
+            let gen = addressGenerator(sHdKey, "m/44'/20'/11'/0", false, callback, "m/44h/20h/11h/0");
+            let next = await gen.next();
+            if (!next.done) results.push(next.value);
+        }
+        resolve();
+    });
 
     //BIP84
-    account=0;
-    do {} while (await genStandard(sHdKey,"m/84'/20'/",account,true,"m/84h/20h/"+(account++)+"h"));
+    const bip84search=new Promise(async(resolve, reject) => {
+        let account = 0;
+        do {} while (await genStandard(sHdKey,"m/84'/20'/",account,true,"m/84h/20h/"+(account++)+"h"));
+        resolve();
+    });
 
     //DigiByte Mobile Legacy
-    account=0;
-    do {} while (await genStandard(bHdKey,"m/",account,false,"m!/"+(account++)+"h"));
+    const dgbMobileLegacy=new Promise(async(resolve, reject) => {
+        let account = 0;
+        do {} while (await genStandard(bHdKey,"m/",account,false,"m!/"+(account++)+"h"));
+        resolve();
+    });
 
     //DigiByte Mobile Bech32??
-    account=0;
-    do {} while (await genStandard(bHdKey,"m/",account,true,"m!/"+(account++)+"h"));
+    const dgbMobileBech=new Promise(async(resolve, reject) => {
+        let account = 0;
+        do {} while (await genStandard(bHdKey,"m/",account,true,"m!/"+(account++)+"h"));
+        resolve();
+    });
 
     //DigiByte Go
-    account=0;
-    do {} while (await genStandard(sHdKey,"m/44'/0'/",account,false,"m/44h/0h/"+(account++)+"h"));
+    const dgbGo=new Promise(async(resolve, reject) => {
+        let account = 0;
+        do {} while (await genStandard(sHdKey,"m/44'/0'/",account,false,"m/44h/0h/"+(account++)+"h"));
+        resolve();
+    });
 
     //Doge Coin
-    account=0;
-    do {} while (await genStandard(bHdKey,"m/44'/3'/",account,false,"m/44h/3h/"+(account++)+"h"));
+    const doge=new Promise(async(resolve, reject) => {
+        let account = 0;
+        do {} while (await genStandard(bHdKey,"m/44'/3'/",account,false,"m/44h/3h/"+(account++)+"h"));
+        resolve();
+    });
+
+    //wait for all the short searches to complete
+    await Promise.all([bip44search,bip84search,dgbMobileLegacy,dgbMobileBech,dgbGo,doge]);
 
     //let generators search complete path
     for (let gen of gens) {
@@ -108586,7 +108614,7 @@ $(function() {
             if (length === 1) {
                 //private key
                 addressData = await DigiSweep.lookupAddress(mnemonic);
-                if (addressData.length === 0) throw "Private key was never used";
+                if (addressData.length === 0) throw "Private key has no funds";
             } else {
                 //rebuild progress html every 2 sec
                 let progressData = {};
@@ -108599,13 +108627,21 @@ $(function() {
                 }, 2000);
 
                 //gather data and update progress
-                addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done) => {
+                let anythingUsed=false;
+                addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done, used) => {
+                    if (used) anythingUsed=true;
                     progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
                 });
 
                 //clear timer and handle common error
                 clearInterval(timer);
-                if (addressData.length === 0) throw "Mnemonic was never used";
+                if (addressData.length === 0) {
+                    if (anythingUsed) {
+                        throw "Mnemonic was used but no longer has any funds";
+                    } else {
+                        throw "Mnemonic was never used";
+                    }
+                }
             }
 
             //gather balance

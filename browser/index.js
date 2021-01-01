@@ -66,7 +66,7 @@ $(function() {
             if (length === 1) {
                 //private key
                 addressData = await DigiSweep.lookupAddress(mnemonic);
-                if (addressData.length === 0) throw "Private key was never used";
+                if (addressData.length === 0) throw "Private key has no funds";
             } else {
                 //rebuild progress html every 2 sec
                 let progressData = {};
@@ -79,13 +79,21 @@ $(function() {
                 }, 2000);
 
                 //gather data and update progress
-                addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done) => {
+                let anythingUsed=false;
+                addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done, used) => {
+                    if (used) anythingUsed=true;
                     progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
                 });
 
                 //clear timer and handle common error
                 clearInterval(timer);
-                if (addressData.length === 0) throw "Mnemonic was never used";
+                if (addressData.length === 0) {
+                    if (anythingUsed) {
+                        throw "Mnemonic was used but no longer has any funds";
+                    } else {
+                        throw "Mnemonic was never used";
+                    }
+                }
             }
 
             //gather balance
