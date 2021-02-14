@@ -60,7 +60,7 @@ $(function() {
 
             //validate inputs
             if (!DigiSweep.validAddress(coinAddress)) throw coinAddress + " is not a valid address";
-            if (!DigiSweep.validAddress(assetAddress)) throw coinAddress + " is not a valid address";
+            if ((assetAddress!=="")&&(!DigiSweep.validAddress(assetAddress))) throw coinAddress + " is not a valid address";
 
             //gather address data
             if (length === 1) {
@@ -80,7 +80,7 @@ $(function() {
 
                 //gather data and update progress
                 let anythingUsed=false;
-                addressData = await DigiSweep.recoverMnemonic(mnemonic, length, (pathName, i, balance, done, used) => {
+                addressData = await DigiSweep.recoverMnemonic(mnemonic.toLowerCase(), length, (pathName, i, balance, done, used) => {
                     if (used) anythingUsed=true;
                     progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
                 });
