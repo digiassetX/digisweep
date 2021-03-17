@@ -60,7 +60,7 @@ $(function() {
 
             //validate inputs
             if (!DigiSweep.validAddress(coinAddress)) throw coinAddress + " is not a valid address";
-            if ((assetAddress!=="")&&(!DigiSweep.validAddress(assetAddress))) throw coinAddress + " is not a valid address";
+            if ((assetAddress!=="")&&(!DigiSweep.validAddress(assetAddress))) throw assetAddress + " is not a valid address";
 
             //gather address data
             if (length === 1) {
@@ -105,6 +105,7 @@ $(function() {
             $(".page").hide();
             $("#send_page").show();
         } catch (e) {
+            console.log(e);
             showError(e.toString());
         }
     }

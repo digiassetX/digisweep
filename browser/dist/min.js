@@ -55238,6 +55238,7 @@ const bip39 = __webpack_require__(6736);
 const digibyte=__webpack_require__(7899);
 const fetch=__webpack_require__(759);
 const dummyFunc=()=>{};
+
 const shortSearch=5;
 const maxSkipped=100;
 
@@ -55284,6 +55285,7 @@ const post=(url,options)=>{
  */
 let AddressWBU;
 
+
 /**
  * Looks up one or more address by wif private key and returns in same format as findFunds
  *
@@ -55291,7 +55293,7 @@ let AddressWBU;
  * true means no balance
  * @param {string}    wif
  * @param {boolean}   bech32
- * @return {Promise<{address: string,wif:string,utxos:string[]}[]>}
+ * @return {Promise<AddressWBU[]>}
  */
 const lookupAddress=async(wif,bech32=false)=>{
     let address = new digibyte.PrivateKey(wif)[bech32?'toAddress':'toLegacyAddress']().toString();
@@ -55402,11 +55404,13 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
     }
     if (possibleLanguages.length===0) throw "Mnemonic words not from recognized language";
     let language=possibleLanguages[0];
+    console.log("language detected: "+language);
 
     //see if last word is complete
     let searches=[];
     let lastIndex=knownWords.length-1;
     if (bip39.wordlists[language].indexOf(knownWords[lastIndex])===-1) {
+        console.log("incomplete mnemonic");
         //incomplete so get list of good words
         let partial=knownWords.pop();
         let good=knownWords.join(" ");
@@ -55416,9 +55420,16 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
             if (word.startsWith(partial)) searches.push(good+" "+word);
         }
     } else {
+        console.log("complete mnemonic");
         //last word is good
         searches.push(knownWords.join(" "));
     }
+
+    //check if any of the completed words is spelt wrong
+    for (let word of knownWords) {
+        if (bip39.wordlists[language].indexOf(word)===-1) throw word+" is an invalid word";
+    }
+
 
     //see if missing words
     let neededExtraWords=length-providedLength;
@@ -55441,6 +55452,7 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
     for (let search of oldSearches) {
         if (bip39.validateMnemonic(search,bip39.wordlists[language])) searches.push(search);
     }
+    if (searches.length===0) throw "Invalid Mnemonic Entered";
 
     //check each valid mnemonic for funds
     let results=[];
@@ -108608,7 +108620,7 @@ $(function() {
 
             //validate inputs
             if (!DigiSweep.validAddress(coinAddress)) throw coinAddress + " is not a valid address";
-            if ((assetAddress!=="")&&(!DigiSweep.validAddress(assetAddress))) throw coinAddress + " is not a valid address";
+            if ((assetAddress!=="")&&(!DigiSweep.validAddress(assetAddress))) throw assetAddress + " is not a valid address";
 
             //gather address data
             if (length === 1) {
@@ -108653,6 +108665,7 @@ $(function() {
             $(".page").hide();
             $("#send_page").show();
         } catch (e) {
+            console.log(e);
             showError(e.toString());
         }
     }
