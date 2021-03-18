@@ -1,6 +1,11 @@
 execute to rebuild index.js in to min.js
 dist folder contains the usable web page
 
+# compile
 webpack --config webpack.config.js
 
-curl -s https://digisweep.digiassetx.com/min.js | openssl dgst -sha512 -binary | openssl enc -base64 -A
+# compute sha512
+https://emn178.github.io/online-tools/sha512_file_hash.html
+
+# convert to base64
+https://base64.guru/converter/encode/hex

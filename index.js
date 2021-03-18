@@ -8,6 +8,44 @@ const dummyFunc=()=>{};
 const shortSearch=5;
 const maxSkipped=100;
 
+
+
+
+
+
+/**
+ * Returns a string without accents for safer comparison
+ * @param {string}  str
+ * @return {string}
+ */
+const ignoreAccents=(str)=>{
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+//create conversion table 
+const sanitizedWordList={};
+for (let language in bip39.wordlists) {
+    if (language.length===2) continue;  //ignore the language code version
+    sanitizedWordList[language]={};
+    for (let word of bip39.wordlists[language]) sanitizedWordList[language][ignoreAccents(word)]=word;
+}
+
+/**
+ * Fixs any accents and joins word array to a string
+ * @param {string[]}    knownWords
+ * @param {string}      language
+ * @return {string}
+ */
+const joinAndClean=(knownWords,language)=>{
+    let cleaned=[];
+    for (let word of knownWords) {
+        let correctedWord=sanitizedWordList[language][ignoreAccents(word)];
+        if (correctedWord===undefined) throw word+" is an invalid word";
+        cleaned.push(correctedWord);
+    }
+    return cleaned.join(" ");
+}
+
 /*
 const get=async(url)=>{
     return ky.get(url).json();
@@ -154,14 +192,13 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
 
     //determine language
     let possibleLanguages=[];
-    for (let language in bip39.wordlists) possibleLanguages.push(language);
+    for (let language in sanitizedWordList) possibleLanguages.push(language);
     let i=0;
-    while (possibleLanguages.length>2) {//2 because each language is listed twice short and long format
+    while (possibleLanguages.length>1) { //todo remove 2 because each language is listed twice short and long format
         //check word i from knownWords and see what languages it is possible in
         let keepList=[];
         for (let language of possibleLanguages) {
-            if (bip39.wordlists[language].indexOf(knownWords[i])!==-1) {
-                //word not in list so remove from language list
+            if (sanitizedWordList[language][ignoreAccents(knownWords[i])]!==undefined) {
                 keepList.push(language);
             }
         }
@@ -175,27 +212,22 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
     //see if last word is complete
     let searches=[];
     let lastIndex=knownWords.length-1;
-    if (bip39.wordlists[language].indexOf(knownWords[lastIndex])===-1) {
+    if (sanitizedWordList[language][ignoreAccents(knownWords[lastIndex])]===undefined) {
         console.log("incomplete mnemonic");
         //incomplete so get list of good words
-        let partial=knownWords.pop();
-        let good=knownWords.join(" ");
+        let partial=ignoreAccents(knownWords.pop());
+        let good=joinAndClean(knownWords,language);
 
         // see what words last could be
-        for (let word of bip39.wordlists[language]) {
+        for (let word in sanitizedWordList[language]) {
             if (word.startsWith(partial)) searches.push(good+" "+word);
-        }
+        }bip39.wordlists[language]
     } else {
         console.log("complete mnemonic");
         //last word is good
-        searches.push(knownWords.join(" "));
+        searches.push(joinAndClean(knownWords,language));
     }
-
-    //check if any of the completed words is spelt wrong
-    for (let word of knownWords) {
-        if (bip39.wordlists[language].indexOf(word)===-1) throw word+" is an invalid word";
-    }
-
+    
     //see if missing words
     let neededExtraWords=length-providedLength;
     for (let i=0; i<neededExtraWords; i++) {
