@@ -65,7 +65,7 @@ $(function() {
             //gather address data
             if (length === 1) {
                 //private key
-                addressData = await DigiSweep.lookupAddress(mnemonic);
+                addressData = await DigiSweep.lookupAddresses([mnemonic]);
                 if (addressData.length === 0) throw "Private key has no funds";
             } else {
                 //rebuild progress html every 2 sec
@@ -82,13 +82,13 @@ $(function() {
                 let anythingUsed=false;
                 addressData = await DigiSweep.recoverMnemonic(mnemonic.toLowerCase(), length, (pathName, i, balance, done, used) => {
                     if (used) anythingUsed=true;
-                    progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${balance}</div><div class="cell">${done}</div></div>`;
+                    progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${(balance/100000000).toFixed(8)}</div><div class="cell">${done}</div></div>`;
                 });
 
                 //clear timer and handle common error
                 clearInterval(timer);
-                if (addressData.length === 0) {
-                    if (anythingUsed) {
+                if (addressData.balance===0) {
+                    if (addressData.used) {
                         throw "Mnemonic was used but no longer has any funds";
                     } else {
                         throw "Mnemonic was never used";
@@ -97,9 +97,7 @@ $(function() {
             }
 
             //gather balance
-            let balanceTotal = 0;
-            for (let {balance} of addressData) balanceTotal += balance;
-            $("#balance").html(balanceTotal.toFixed(8));
+            $("#balance").html((addressData.balance/100000000).toFixed(8));
 
             //show send_page
             $(".page").hide();
@@ -142,6 +140,13 @@ $(function() {
      |___/\___|_||_\__,_| |_| \__,_\__, \___|
                                    |___/
      */
+    const domTaxLocation=$("#taxlocation");
+    domTaxLocation.change(()=>{
+        let disabled=(domTaxLocation.val()==="x");
+        $("#send").prop('disabled',disabled);
+        $("#build").prop('disabled',disabled);
+    });
+
     $("#send").click(async () => {
         //show processing screen
         $(".page").hide();
@@ -149,7 +154,7 @@ $(function() {
 
         //send and get txids
         try {
-            let txids = await DigiSweep.sendTXs(addressData, coinAddress, assetAddress);
+            let txids = await DigiSweep.sendTXs(addressData, coinAddress, assetAddress, domTaxLocation.val());
             $("#complete_txid_message").html('<p>' + txids.join("</p><p>") + '</p>');
 
             //show complete_page
@@ -168,7 +173,7 @@ $(function() {
 
         //send and get txids
         try {
-            let messages = await DigiSweep.buildTXs(addressData, coinAddress, assetAddress);
+            let messages = await DigiSweep.buildTXs(addressData, coinAddress, assetAddress, domTaxLocation.val());
             let done=messages.pop();
             $("#complete_build_message").html('<p>' + messages.join("</p><p>") + '</p>');
             $("#complete_build_notdone")[done?"hide":"show"]();

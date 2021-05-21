@@ -1,14 +1,16 @@
-const server='https://digiexplorer.info/api/';
+// noinspection JSUnfilteredForInLoop
 
 const bip39 = require('bip39');
 const digibyte=require('digibyte');
 const fetch=require('node-fetch');
 const dummyFunc=()=>{};
 
-const shortSearch=5;
-const maxSkipped=100;
+const blockSize=50; //number of addresses to test at a time
+const maxSkipped=2; //max number of blocks not to be used
 
-
+/**
+ * @typedef {{used:boolean,balance:int,addresses:Object<string>}} UBA
+ */
 
 
 
@@ -48,15 +50,6 @@ const joinAndClean=(knownWords,language)=>{
 
 /*
 const get=async(url)=>{
-    return ky.get(url).json();
-}
-const post=async(url,options)=>{
-    return ky.post(url,{
-        json: options
-    }).json();
-}
-*/
-const get=async(url)=>{
     return new Promise((resolve, reject) => {
         fetch(url)
             .then((response) => response.json())
@@ -64,6 +57,7 @@ const get=async(url)=>{
             .catch(reject);
     });
 }
+ */
 const post=(url,options)=>{
     return new Promise((resolve, reject) => {
         fetch(url,{
@@ -79,49 +73,34 @@ const post=(url,options)=>{
 
 
 
-/**
- * @type {{
- *     address: string,
- *     wif:     string,
- *     balance: Number,
- *     utxos:   string[]
- * }}
- */
-let AddressWBU;
+
 
 
 /**
- * Looks up one or more address by wif private key and returns in same format as findFunds
- *
- * false means never been used
- * true means no balance
- * @param {string}    wif
- * @param {boolean}   bech32
- * @return {Promise<AddressWBU[]>}
+ * Gets the addresses associated with several wifs then returns
+ * if any where used
+ * total balance
+ * and an object where keys are addresses and values are the wifs for those that have a balance
+ * @param {string[]}    wifs
+ * @param {boolean}     bech32
+ * @return {Promise<UBA>}
  */
-const lookupAddress=async(wif,bech32=false)=>{
-    let address = new digibyte.PrivateKey(wif)[bech32?'toAddress':'toLegacyAddress']().toString();
-
-    //lookup address and see if ever used
-    // noinspection JSCheckFunctionSignatures
-    let addressData=await get(server+'addr/'+address);
-    if (addressData.totalReceived===0) return [];
-
-    //see if there are any funds
-    if (addressData.balance===0) return [];
-
-    //get utxos if there is any funds
-    // noinspection JSCheckFunctionSignatures
-    let addressUtxos=await get(server+'addr/'+address+'/utxo');
-    let utxos=[];
-    for (let utxo of addressUtxos) {
-        utxos.push(utxo.txid+":"+utxo.vout);
+const lookupAddresses=async(wifs,bech32)=>{
+    //make list of addresses
+    let lookup={};
+    for (let wif of wifs) {
+        lookup[new digibyte.PrivateKey(wif)[bech32?'toAddress':'toLegacyAddress']().toString()]=wif;
     }
 
-    //return data
-    return [{address,wif, balance: addressData.balance,utxos}];
+    //see if any funds
+    let {used,balance,addresses}=await post('https://digisweep.digiassetX.com/check',{
+        addresses:  Object.keys(lookup)
+    });
+    let data={used,balance,addresses:{}};
+    for (let address of addresses) data.addresses[address]=lookup[address];
+    return data;
 }
-module.exports.lookupAddress=lookupAddress;
+module.exports.lookupAddresses=lookupAddresses;
 
 /**
  * path should be in the form of m/44'/20'/0'/0 will add the last /i itself
@@ -130,57 +109,56 @@ module.exports.lookupAddress=lookupAddress;
  * @param {boolean}         bech32
  * @param {function(pathName:string,i:int,balance:number,done:boolean,used:boolean)}  callback
  * @param {string}         pathName
- * @return {Generator<{address: string,wif:string,utxos:string[]}>}
+ * @return {Generator<UBA>}
  */
 async function* addressGenerator(hdPrivateKey,path,bech32=false,callback=dummyFunc,pathName=path) {
     let i=0;
-    let used=false;
+    let usedAll=false;
     let derived = hdPrivateKey.derive(path);
     let skipped=0;
     let total=0;
     while (
-        (i<shortSearch)||                       //search at lease the first fiew entries
-        (used&&(skipped<maxSkipped))            //if any found then search until max Skipped before giving up
+        (i===0)||                               //search at lease the first block
+        (usedAll&&(skipped<maxSkipped))            //if any found then search until max Skipped before giving up
     ) {
-        //compute next addresses info
-        let privateKey=derived.deriveChild(i++).privateKey;
-        let address=privateKey[bech32?'toAddress':'toLegacyAddress']().toString();
-        let wif=privateKey.toWIF();
+        //compute next block of addresses
+        let wifs=[];
+        for (let ii=0;ii<blockSize;ii++) {
+            let privateKey = derived.deriveChild(i++).privateKey;
+            wifs.push(privateKey.toWIF());
+        }
 
-        //lookup address and see if ever used
-        // noinspection JSCheckFunctionSignatures
-        let addressData=await get(server+'addr/'+address);
-        if (addressData.totalReceived===0) {
+        //see if any where used
+        let {used,balance,addresses}=await lookupAddresses(wifs,bech32);
+        if (!used) {
             skipped++;
             continue;
         }
+
+        //if any where used process
+        usedAll=true;
+        total+=balance;
         skipped=0;
-        used=true;
-
-        //see if there are any funds
-        if (addressData.balance===0) continue;
-
-        //get utxos if there is any funds
-        // noinspection JSCheckFunctionSignatures
-        let addressUtxos=await get(server+'addr/'+address+"/utxo");
-        let utxos=[];
-        for (let utxo of addressUtxos) {
-            utxos.push(utxo.txid+":"+utxo.vout);
-        }
 
         //call callback
-        total+=addressData.balance;
-        callback(pathName,i-1,total,false,used);
+        callback(pathName,i-1,total,false,usedAll);
 
         //return data
-        let output={address,wif, balance: addressData.balance,utxos};
+        let output={used,balance,addresses};
         yield output;
     }
-    callback(pathName,i-1,total,true,used);
+    callback(pathName,i-1,total,true,usedAll);
 }
 module.exports.addressGenerator=addressGenerator;
 
 
+/**
+ *
+ * @param {string}  mnemonicPart
+ * @param {int}     length
+ * @param callback
+ * @return {Promise<UBA>}
+ */
 const recoverMnemonic=async(mnemonicPart,length,callback)=>{
     //split in to individual words
     let knownWords=mnemonicPart.trim().split(/[\s]+/g);
@@ -188,7 +166,7 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
 
     //see if valid mnemonic
     if (providedLength>length) throw "Mnemonic longer then desired length";
-    if ((length===providedLength)&&(bip39.validateMnemonic(mnemonicPart))) return await findFunds(mnemonicPart,callback);
+    if ((length===providedLength)&&(bip39.validateMnemonic(mnemonicPart))) return findFunds(mnemonicPart,callback);
 
     //determine language
     let possibleLanguages=[];
@@ -221,7 +199,7 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
         // see what words last could be
         for (let word in sanitizedWordList[language]) {
             if (word.startsWith(partial)) searches.push(good+" "+word);
-        }bip39.wordlists[language]
+        }
     } else {
         console.log("complete mnemonic");
         //last word is good
@@ -252,14 +230,16 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
     if (searches.length===0) throw "Invalid Mnemonic Entered";
 
     //check each valid mnemonic for funds
-    let results=[];
+    let results={used:false,balance:0,addresses:{}};
     let useModified=(searches.length>1);
     for (let mnemonic of searches) {
         let modifiedCallback=(pathName,i,balance,done,used)=>{
             callback(mnemonic+": "+pathName,i,balance,done,used);
         }
-        let result=await findFunds(mnemonic,useModified?modifiedCallback:callback);
-        if (result.length>0) results.push(...result);
+        let {used,balance,addresses}=await findFunds(mnemonic,useModified?modifiedCallback:callback);
+        if (used) results.used=true;
+        results.balance+=balance;
+        for (let address in addresses) results.addresses[address]=addresses[address];
     }
 
     return results;
@@ -272,11 +252,11 @@ module.exports.recoverMnemonic=recoverMnemonic;
  * Only Addresses are sent to server.  No private info.
  * @param {string}  mnemonic
  * @param {function(pathName:string,i:int,balance:number,done:boolean,used:boolean)}  callback
- * @return {Promise<AddressWBU[]>}
+ * @return {Promise<UBA>}
  */
 const findFunds=async(mnemonic,callback=dummyFunc)=>{
     let seed = await bip39.mnemonicToSeed(mnemonic);
-    let results=[];
+    let results= {used:false,balance:0,addresses:{}};
     let gens=[];
 
 
@@ -284,20 +264,17 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
     const genStandard=async(hdKey,path,account,bech32,pathName)=>{
         let found=false;
 
-        //external addresses
-        let genE=addressGenerator(hdKey,path+account+"'/0",bech32,callback,pathName+"/0");
-        let nextE=await genE.next();
-        if (!nextE.done) {
-            results.push(nextE.value);
-            found=true;
-        }
 
-        //change addresses
-        let genC=addressGenerator(hdKey,path+account+"'/1",bech32,callback,pathName+"/1");
-        let nextC=await genC.next();
-        if (!nextC.done) {
-            results.push(nextC.value);
-            found = true;
+        let genE=addressGenerator(hdKey,path+account+"'/0",bech32,callback,pathName+"/0");//external addresses
+        let genC=addressGenerator(hdKey,path+account+"'/1",bech32,callback,pathName+"/1");//change addresses
+        let nextEC=await Promise.all([genE.next(),genC.next()]);
+        for (let next of nextEC) {
+            if (!next.done) {
+                if (next.value.used) results.used=true;
+                results.balance+=next.value.balance;
+                for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
+                found=true;
+            }
         }
 
         //if either found push both gens
@@ -316,7 +293,7 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
     const bHdKey=digibyte.HDPrivateKey.fromSeed(seed, undefined,'DigiByte seed');
 
     //Standard BIP44
-    const bip44search=new Promise(async(resolve, reject) => {
+    const bip44search=new Promise(async(resolve) => {
         let account = 0;
         do {
         } while (await genStandard(sHdKey, "m/44'/20'/", account, false, "m/44h/20h/" + (account++) + "h"));
@@ -325,41 +302,45 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
         if (account <= 11) {
             let gen = addressGenerator(sHdKey, "m/44'/20'/11'/0", false, callback, "m/44h/20h/11h/0");
             let next = await gen.next();
-            if (!next.done) results.push(next.value);
+            if (!next.done) {
+                if (next.value.used) results.used=true;
+                results.balance+=next.value.balance;
+                for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
+            }
         }
         resolve();
     });
 
     //BIP84
-    const bip84search=new Promise(async(resolve, reject) => {
+    const bip84search=new Promise(async(resolve) => {
         let account = 0;
         do {} while (await genStandard(sHdKey,"m/84'/20'/",account,true,"m/84h/20h/"+(account++)+"h"));
         resolve();
     });
 
     //DigiByte Mobile Legacy
-    const dgbMobileLegacy=new Promise(async(resolve, reject) => {
+    const dgbMobileLegacy=new Promise(async(resolve) => {
         let account = 0;
         do {} while (await genStandard(bHdKey,"m/",account,false,"m!/"+(account++)+"h"));
         resolve();
     });
 
     //DigiByte Mobile Bech32??
-    const dgbMobileBech=new Promise(async(resolve, reject) => {
+    const dgbMobileBech=new Promise(async(resolve) => {
         let account = 0;
         do {} while (await genStandard(bHdKey,"m/",account,true,"m!/"+(account++)+"h"));
         resolve();
     });
 
     //DigiByte Go
-    const dgbGo=new Promise(async(resolve, reject) => {
+    const dgbGo=new Promise(async(resolve) => {
         let account = 0;
         do {} while (await genStandard(sHdKey,"m/44'/0'/",account,false,"m/44h/0h/"+(account++)+"h"));
         resolve();
     });
 
     //Doge Coin
-    const doge=new Promise(async(resolve, reject) => {
+    const doge=new Promise(async(resolve) => {
         let account = 0;
         do {} while (await genStandard(bHdKey,"m/44'/3'/",account,false,"m/44h/3h/"+(account++)+"h"));
         resolve();
@@ -376,11 +357,14 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
             if (next.done) {
                 notDone=false;
             } else {
-                results.push(next.value);
+                if (next.value.used) results.used=true;
+                results.balance+=next.value.balance;
+                for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
             }
         } while (notDone);
     }
 
+    //return
     return results;
 }
 module.exports.findFunds=findFunds;
@@ -389,37 +373,29 @@ module.exports.findFunds=findFunds;
 /**
  * Creates the commands needed to execute on a core wallet to send the funds.
  * Only txid and vouts are sent to server.  No private info.
- * @param {AddressWBU[]}    awbuData
+ * taxLocation needs to be one of the following values.  Use NA if not in Canada
+ *  NA, CAN.AB, CAN.BC, CAN.MB, CAN.NB, CAN.NL, CAN.NT, CAN.NS, CAN.NU, CAN.ON, CAN.PE, CAN.QC, CAN.SK, CAN.YT
+ * this has no effect on the operation so do not lie.
+ *
+ * @param {UBA}             ubaData
  * @param {string}          coinAddress
  * @param {string}          assetAddress
+ * @param {string}          taxLocation
  * @return {Promise<string[]>}
  */
-const buildTXs=async(awbuData,coinAddress,assetAddress)=>{
-    //build wif list
-    let wifs={};
-    for (let {wif,address} of awbuData) wifs[address]=wif;
-
-    //build utxo list
-    let allUtxos=[];
-    for (let {utxos} of awbuData) {
-        for (let utxo of utxos) allUtxos.push(utxo);
-    }
-
+const buildTXs=async(ubaData,coinAddress,assetAddress,taxLocation)=>{
     //get raw transactions from server
-    let {value,done}=await post("https://digisweep.digiassetX.com/build",{
-
-            utxos:  allUtxos,
-            coin:    coinAddress,
-            asset:    assetAddress
-
+    let {value,done}=await post("https://digisweep.digiassetX.com/build/"+taxLocation,{
+            addresses:  Object.keys(ubaData.addresses), //ironically the Object.keys functions strips the keys out and returns only the addresses
+            coin:       coinAddress,
+            asset:      assetAddress
     });
 
-    //sign and send transactions
+    //build instructions on how to send
     let messages=[];
     for (let {tx,addresses} of value) {
         let keys = [];
-        for (let address of addresses) keys.push(wifs[address]);
-
+        for (let address of addresses) keys.push(ubaData.addresses[address]);
         messages.push('signrawtransactionwithkey "'+tx+'" \''+JSON.stringify(keys)+"'");
     }
     messages.push(done);
@@ -435,31 +411,23 @@ module.exports.buildTXs=buildTXs;
  *
  * WARNING: private keys are transmitted to server with this function.
  * Do not ever reuse this wallet if you chose this option.
+ * taxLocation needs to be one of the following values.  Use NA if not in Canada
+ *  NA, CAN.AB, CAN.BC, CAN.MB, CAN.NB, CAN.NL, CAN.NT, CAN.NS, CAN.NU, CAN.ON, CAN.PE, CAN.QC, CAN.SK, CAN.YT
+ * this has no effect on the operation so do not lie.
  *
- * @param {AddressWBU[]}    awbuData
+ * @param {UBA}             ubaData
  * @param {string}          coinAddress
  * @param {string}          assetAddress
+ * @param {string}          taxLocation
  * @return {Promise<string[]>}
  */
-const sendTXs=async(awbuData,coinAddress,assetAddress)=> {
-    //build wif list
-    let wifs={};
-    for (let {wif,address} of awbuData) wifs[address]=wif;
-
-    //build utxo list
-    let allUtxos=[];
-    for (let {utxos} of awbuData) {
-        for (let utxo of utxos) allUtxos.push(utxo);
-    }
-
+const sendTXs=async(ubaData,coinAddress,assetAddress,taxLocation)=> {
     //get raw transactions from server
-    return await post("https://digisweep.digiassetX.com/send",{
-
-            utxos:  allUtxos,
-            coin:    coinAddress,
-            asset:    assetAddress,
-            keys:   wifs
-
+    return await post("https://digisweep.digiassetX.com/send/"+taxLocation,{
+            addresses:  Object.keys(ubaData.addresses),
+            coin:       coinAddress,
+            asset:      assetAddress,
+            keys:       ubaData.addresses
     });
 }
 module.exports.sendTXs=sendTXs;

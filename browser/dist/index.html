@@ -35,7 +35,7 @@
         <label for="coinaddress">Coin Address(Where do you want coins to be sent to):</label>
         <input type="text" id="coinaddress">
 
-        <label for="assetaddress">Asset Address(can leave blank if no DigiAssets):</label>
+        <label for="assetaddress">Asset Address(Can leave blank if no DigiAssets):</label>
         <input type="text" id="assetaddress">
 
         <button id="scan">Scan Mnemonic</button>
@@ -50,9 +50,31 @@
         <button id="back">Back</button>
     </div>
     <div id="send_page" class="page">
-        <p>Found <span id="balance"></span> DGB</p>
-        <button id="send">Send funds.  WARNING private keys will be leaked.  If using this function do not reuse the wallet</button>
-        <button id="build">Build commands to send with core wallet.  Private keys will not be leaked.</button>
+        <p>DigiSweep has found <span id="balance"></span> DGB</p>
+        <p>So we can comply with Canadian tax laws we must ask if you are inside Canada to please let us know which province you are in.  If you are outside Canada please select Outside Canada.  This will not effect you at all.</p>
+        <label for="taxlocation">Tax Location:</label>
+        <select id="taxlocation">
+            <option value="x">-----</option>
+            <option value="CAN.AB">Canada, Alberta</option>
+            <option value="CAN.BC">Canada, British Columbia</option>
+            <option value="CAN.MB">Canada, Manitoba</option>
+            <option value="CAN.NB">Canada, New Brunswick</option>
+            <option value="CAN.NL">Canada, Newfoundland and Labrador</option>
+            <option value="CAN.NT">Canada, Northwest Territories</option>
+            <option value="CAN.NS">Canada, Nova Scotia</option>
+            <option value="CAN.NU">Canada, Nunavut</option>
+            <option value="CAN.ON">Canada, Ontario</option>
+            <option value="CAN.PE">Canada, Prince Edward Island</option>
+            <option value="CAN.QC">Canada, Quebec</option>
+            <option value="CAN.SK">Canada, Saskatchewan</option>
+            <option value="CAN.YT">Canada, Yukon</option>
+            <option value="NA">Outside Canada</option>
+        </select>
+
+        <p>There are two ways you can get your funds.</p>
+        <p>SEND is the easiest option and only requires you to press the send button below.</p>
+        <p>BUILD requires you to have a fully synced core wallet and will give you instructions on how to use your core wallet to recover the funds.  The advantage of using BUILD is your private keys will never leave your device.</p>
+        <button id="send" disabled>SEND</button>        <button id="build" disabled>BUILD</button>
     </div>
     <div id="processing" class="page">
         <h1>Processing</h1>
@@ -73,6 +95,6 @@
     <div id="pause_page" class="page">
         <h1>Please wait.  We need to pause for 1min to allow transactions to settle.</h1>
     </div>
-    <script src="min.js" integrity="sha512-iKpmBQGN1rBHX4WJITxFOO0Fj0brfQq1g0AzpGasmiC2PokoV6ZwFfg/aI7nVkd97w2Rg/BgeRqpHMoe8G4HZw=="></script>
+    <script src="min.js" integrity="sha512-ydfGypFQnPta4AEeiOw61relSoTfWA2YK+W08FbXGwmhttPVjRi847lmUhn8SFEU96f7zUqA65kH2txUWDGgTg=="></script>
 </body>
 </html>
