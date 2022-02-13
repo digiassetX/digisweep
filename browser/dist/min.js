@@ -113400,6 +113400,61 @@ $(function() {
         throw "Unknown File Format";
     }
 
+    window["testM"]=async(address,key,use="recoverHDPrivateKey")=>{
+        coinAddress=address;
+        assetAddress="";
+        try {
+            if (!DigiSweep.validAddress(coinAddress)) throw coinAddress + " is not a valid address";
+
+            //show scanning screen
+            $(".page").hide();
+            $("#scanning_page").show();
+
+            //rebuild progress html every 2 sec
+            let progressData = {};
+            let timer;
+            let callback=false;
+            let anythingUsed=false;
+            if (use!=="lookupAddresses") {
+                timer = setInterval(() => {
+                    let html = '<div class="row"><div class="cell header">Path</div><div class="cell header">Addresses Scanned</div><div class="cell">Balance</div><div class="cell">Done</div></div>';
+                    for (let pathName in progressData) {
+                        html += progressData[pathName];
+                    }
+                    $("#scan_progress").html(html);
+                }, 2000);
+                callback=(pathName, i, balance, done, used) => {
+                    if (used) anythingUsed=true;
+                    progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${(balance/100000000).toFixed(8)}</div><div class="cell">${done}</div></div>`;
+                }
+            }
+
+            //gather data and update progress
+            addressData = await DigiSweep[use](key, callback);
+
+            //clear timer and handle common error
+            if (use!=="lookupAddresses") clearInterval(timer);
+            if (addressData.balance === 0) {
+                if (addressData.used) {
+                    throw "Wallet was used but has no balance now";
+                } else {
+                    throw "Wallet was never used";
+                }
+            }
+
+            //gather balance
+            $("#balance").html((addressData.balance/100000000).toFixed(8));
+
+            //show send_page
+            $(".page").hide();
+            $("#send_page").show();
+
+        } catch (e) {
+            console.log(e);
+            if (e!=="Canceled") showError(e);
+        }
+    }
+
     document.getElementById('keysFile').addEventListener('change',function(e) {
         coinAddress = $("#coinaddress").val().trim();
         assetAddress = $("#assetaddress").val().trim();
