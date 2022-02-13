@@ -16,9 +16,11 @@
     "crypto-browserify": "^3.12.0",
     "digibyte": "^0.15.8",
     "events": "^3.2.0",
+    "gibberish-aes": "^1.0.0",
     "jquery": "^3.5.1",
     "process": "^0.11.10",
     "promise-sleep": "^1.0.1",
+    "sjcl": "^1.0.8",
     "stream-browserify": "^3.0.0",
     "url": "^0.11.0",
     "whatwg-fetch": "^3.5.0"

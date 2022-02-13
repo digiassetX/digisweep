@@ -21,7 +21,8 @@ module.exports = {
             "assert": require.resolve("assert/"),
             "url": require.resolve("url/"),
             "stream": require.resolve("stream-browserify"),
-            "events": require.resolve("events/")
+            "events": require.resolve("events/"),
+            "gibberish-aes": require.resolve("gibberish-aes/src/gibberish-aes.js")
         }
     },
     optimization: {

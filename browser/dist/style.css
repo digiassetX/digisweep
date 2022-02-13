@@ -46,44 +46,7 @@
     border: 1px solid gray;
 }
 
-#shadow {
-	position:			fixed;
-	padding:			0;
-	margin:				0;
 
-	top:				0;
-	left:				0;
-
-	width: 				100%;
-	height: 			100%;
-	background:			rgba(0,0,0,0.5);
-	display: 			none;
-	z-index:			999999;
-}
-.window {
-	text-align:			center;
-	margin: 			0;
-	position: 			fixed;  
-	top: 				50%;
-	left: 				50%;
-	transform: 			translate(-50%, -50%);
-	display: 			none;	
-	
-	background-color: 	white;	
-	border-radius:		2px;
-	box-shadow:			0 0 15px;
-	font-size:			14px;
-	font-weight:		bold;
-	background-color: 	#EEEEEE;
-	z-index: 			1000000;
-}
-
-#window_asset {
-	text-align:			left;	
-}
-.assetValue {
-	font-weight:		normal;	
-}
 
 #mnemonic {
 	width: calc(100% - 120px);
@@ -91,4 +54,42 @@
 #mnemonic_length {
 	width: 110px;
 	padding: 10px 10px;
+}
+
+/* The Modal (background) */
+.modal {
+	display: none; /* Hidden by default */
+	position: fixed; /* Stay in place */
+	z-index: 1; /* Sit on top */
+	left: 0;
+	top: 0;
+	width: 100%; /* Full width */
+	height: 100%; /* Full height */
+	overflow: auto; /* Enable scroll if needed */
+	background-color: rgb(0,0,0); /* Fallback color */
+	background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content/Box */
+.modal-content {
+	background-color: #fefefe;
+	margin: 15% auto; /* 15% from the top and centered */
+	padding: 20px;
+	border: 1px solid #888;
+	width: 80%; /* Could be more or less, depending on screen size */
+}
+
+/* The Close Button */
+.close {
+	color: #aaa;
+	float: right;
+	font-size: 28px;
+	font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+	color: black;
+	text-decoration: none;
+	cursor: pointer;
 }

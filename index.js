@@ -33,7 +33,7 @@ for (let language in bip39.wordlists) {
 }
 
 /**
- * Fixs any accents and joins word array to a string
+ * Fixes any accents and joins word array to a string
  * @param {string[]}    knownWords
  * @param {string}      language
  * @return {string}
@@ -78,14 +78,14 @@ const post=(url,options)=>{
 
 /**
  * Gets the addresses associated with several wifs then returns
- * if any where used
+ * if anywhere used
  * total balance
  * and an object where keys are addresses and values are the wifs for those that have a balance
  * @param {string[]}    wifs
  * @param {boolean}     bech32
  * @return {Promise<UBA>}
  */
-const lookupAddresses=async(wifs,bech32)=>{
+const lookupAddresses=async(wifs,bech32=false)=>{
     //make list of addresses
     let lookup={};
     for (let wif of wifs) {
@@ -114,7 +114,7 @@ module.exports.lookupAddresses=lookupAddresses;
 async function* addressGenerator(hdPrivateKey,path,bech32=false,callback=dummyFunc,pathName=path) {
     let i=0;
     let usedAll=false;
-    let derived = hdPrivateKey.derive(path);
+    let derived = (path===false)?hdPrivateKey:hdPrivateKey.derive(path);
     let skipped=0;
     let total=0;
     while (
@@ -128,14 +128,14 @@ async function* addressGenerator(hdPrivateKey,path,bech32=false,callback=dummyFu
             wifs.push(privateKey.toWIF());
         }
 
-        //see if any where used
+        //see if anywhere used
         let {used,balance,addresses}=await lookupAddresses(wifs,bech32);
         if (!used) {
             skipped++;
             continue;
         }
 
-        //if any where used process
+        //if anywhere used process
         usedAll=true;
         total+=balance;
         skipped=0;
@@ -150,6 +150,60 @@ async function* addressGenerator(hdPrivateKey,path,bech32=false,callback=dummyFu
     callback(pathName,i-1,total,true,usedAll);
 }
 module.exports.addressGenerator=addressGenerator;
+
+/**
+ * Searches funds for hd private key
+ * @param {string}  hdkey
+ * @param callback
+ * @return {Promise<UBA>}
+ */
+const recoverHDPrivateKey=async(hdkey,callback)=>{
+    let results= {used:false,balance:0,addresses:{}};
+    let gens=[];
+    let found=false;
+    let hdKey=digibyte.HDPrivateKey.fromString(hdkey);
+
+    let genE=addressGenerator(hdKey,0,false,callback,"0");//external addresses
+    let genC=addressGenerator(hdKey,1,false,callback,"1");//change addresses
+    let genN=addressGenerator(hdKey,false,false,callback,"null");//non sub path
+    let nextEC=await Promise.all([genE.next(),genC.next(),genN.next()]);
+    for (let next of nextEC) {
+        if (!next.done) {
+            if (next.value.used) results.used=true;
+            results.balance+=next.value.balance;
+            for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
+            found=true;
+        }
+    }
+
+    //if either found push both gens
+    if (found) {
+        gens.push(genE);
+        gens.push(genC);
+        gens.push(genN);
+    }
+
+    //allow loop to check next if used
+    //let generators search complete path
+    for (let gen of gens) {
+        let notDone=true;
+        do {
+            let next=await gen.next();
+            if (next.done) {
+                notDone=false;
+            } else {
+                if (next.value.used) results.used=true;
+                results.balance+=next.value.balance;
+                for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
+            }
+        } while (notDone);
+    }
+
+    //return
+    return results;
+}
+module.exports.recoverHDPrivateKey=recoverHDPrivateKey;
+
 
 
 /**
@@ -260,6 +314,7 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
     let gens=[];
 
 
+    let found=false;
     //function to check if address is used
     const genStandard=async(hdKey,path,account,bech32,pathName)=>{
         let found=false;
