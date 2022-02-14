@@ -56481,13 +56481,56 @@ module.exports.addressGenerator=addressGenerator;
 const recoverHDPrivateKey=async(hdkey,callback)=>{
     let results= {used:false,balance:0,addresses:{}};
     let gens=[];
-    let found=false;
     let hdKey=digibyte.HDPrivateKey.fromString(hdkey);
 
-    let genE=addressGenerator(hdKey,0,false,callback,"0");//external addresses
-    let genC=addressGenerator(hdKey,1,false,callback,"1");//change addresses
-    let genN=addressGenerator(hdKey,false,false,callback,"null");//non sub path
+
+    const genStandard=async(hdKey,path,account,bech32,pathName)=>{
+        let found=false;
+
+
+        let genE=addressGenerator(hdKey,path+account+"'/0",bech32,callback,pathName+"/0");//external addresses
+        let genC=addressGenerator(hdKey,path+account+"'/1",bech32,callback,pathName+"/1");//change addresses
+        let nextEC=await Promise.all([genE.next(),genC.next()]);
+        for (let next of nextEC) {
+            if (!next.done) {
+                if (next.value.used) results.used=true;
+                results.balance+=next.value.balance;
+                for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
+                found=true;
+            }
+        }
+
+        //if either found push both gens
+        if (found) {
+            gens.push(genE);
+            gens.push(genC);
+        }
+
+        //allow loop to check next if used
+        return found;
+    }
+
+    //search DigiByte's bip 44 path
+    let account = 0;
+    do {
+    } while (await genStandard(hdKey, "m/44'/20'/", account, false, "m/44h/20h/" + (account++) + "h"));
+
+    //search Bitcoin's bip44 path
+    account = 0;
+    do {
+    } while (await genStandard(hdKey, "m/44'/0'/", account, false, "m/44h/0h/" + (account++) + "h"));
+
+    //search BIP 32 path
+    account = 0;
+    do {
+    } while (await genStandard(hdKey, "m/", account, false, "m/" + (account++) + "h"));
+
+    //search non sub paths
+    let genE=addressGenerator(hdKey,0,false,callback,"m/0");//external addresses
+    let genC=addressGenerator(hdKey,1,false,callback,"m/1");//change addresses
+    let genN=addressGenerator(hdKey,false,false,callback,"m");//non sub path
     let nextEC=await Promise.all([genE.next(),genC.next(),genN.next()]);
+    let found=false;
     for (let next of nextEC) {
         if (!next.done) {
             if (next.value.used) results.used=true;
