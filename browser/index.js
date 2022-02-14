@@ -144,8 +144,9 @@ $(function() {
             if (lines.length<4) throw "Not Old Wallet";		//if file is to short cancel
 
             //get keys from file
+            let failedCheck=false;
             while (true) {
-                let password = await getPassword();
+                let password = await getPassword(failedCheck);
                 try {
                     let data = GibberishAES.dec(encoded, password).split("\n");//decode data
                     let keys = [];								//initialize keys array
@@ -161,6 +162,7 @@ $(function() {
                     }
                 } catch (e) {
                 }
+                failedCheck=true;
             }
 
 
@@ -174,19 +176,21 @@ $(function() {
         try {
             //decode data and verify data
             let jsonData=JSON.parse(fileData);
-            if (jsonData===null) throw "Not go wallet";
+            if (jsonData==null) throw "Not go wallet";
 
             //get keys from file
+            let failedCheck=false;
             while (true) {
-                let password = await getPassword();
+                let password = await getPassword(failedCheck);
                 try {
-                    let {xPrivKey} = JSON.parse(sjcl.decrypt(password, data));
+                    let {xPrivKey} = JSON.parse(sjcl.decrypt(password, fileData));
                     return {
                         use:    "recoverHDPrivateKey",
                         key:    xPrivKey
                     }
                 } catch (e) {
                 }
+                failedCheck=true;
             }
 
         } catch (e) {
@@ -195,61 +199,6 @@ $(function() {
 
         //unknown add more formats above here
         throw "Unknown File Format";
-    }
-
-    window["testM"]=async(address,key,use="recoverHDPrivateKey")=>{
-        coinAddress=address;
-        assetAddress="";
-        try {
-            if (!DigiSweep.validAddress(coinAddress)) throw coinAddress + " is not a valid address";
-
-            //show scanning screen
-            $(".page").hide();
-            $("#scanning_page").show();
-
-            //rebuild progress html every 2 sec
-            let progressData = {};
-            let timer;
-            let callback=false;
-            let anythingUsed=false;
-            if (use!=="lookupAddresses") {
-                timer = setInterval(() => {
-                    let html = '<div class="row"><div class="cell header">Path</div><div class="cell header">Addresses Scanned</div><div class="cell">Balance</div><div class="cell">Done</div></div>';
-                    for (let pathName in progressData) {
-                        html += progressData[pathName];
-                    }
-                    $("#scan_progress").html(html);
-                }, 2000);
-                callback=(pathName, i, balance, done, used) => {
-                    if (used) anythingUsed=true;
-                    progressData[pathName] = `<div class="row"><div class="cell">${pathName}</div><div class="cell">${i+1}</div><div class="cell">${(balance/100000000).toFixed(8)}</div><div class="cell">${done}</div></div>`;
-                }
-            }
-
-            //gather data and update progress
-            addressData = await DigiSweep[use](key, callback);
-
-            //clear timer and handle common error
-            if (use!=="lookupAddresses") clearInterval(timer);
-            if (addressData.balance === 0) {
-                if (addressData.used) {
-                    throw "Wallet was used but has no balance now";
-                } else {
-                    throw "Wallet was never used";
-                }
-            }
-
-            //gather balance
-            $("#balance").html((addressData.balance/100000000).toFixed(8));
-
-            //show send_page
-            $(".page").hide();
-            $("#send_page").show();
-
-        } catch (e) {
-            console.log(e);
-            if (e!=="Canceled") showError(e);
-        }
     }
 
     document.getElementById('keysFile').addEventListener('change',function(e) {
@@ -261,6 +210,7 @@ $(function() {
             if (!DigiSweep.validAddress(coinAddress)) throw coinAddress + " is not a valid address";
             if ((assetAddress !== "") && (!DigiSweep.validAddress(assetAddress))) throw assetAddress + " is not a valid address";
         } catch (e) {
+            console.log(e);
             showError(e);
             return;
         }
@@ -334,25 +284,27 @@ $(function() {
      |  _/ _` (_-<_-< V  V / _ \ '_/ _` |
      |_| \__,_/__/__/\_/\_/\___/_| \__,_|
      */
-    let passwordModal=document.getElementById('passwordModal');
-    const getPassword=async()=>{
-        $("#decrypt").attr('disabled' , true).val("");//clear values if they where entered before
-        passwordModal.style.display = "block";
+    const getPassword=async(retry=false)=>{
+        if (retry) $("#passwordHint").show();
+        $("#decrypt").attr('disabled' , true);
+        $("#password").val("");//clear values if they were entered before
+        $("#passwordModal").show();
         return new Promise((resolve,reject)=>{
             waitingPassword=[resolve,reject];
         });
     }
     let waitingPassword;
     $("#passwordClose").click(()=>{
-        passwordModal.style.display = "hide";
+        $("#passwordModal").hide();
         waitingPassword[1]("Canceled");
     });
-    $("#password").on("change",()=>{
+    $("#password").on("keyup",()=>{
         let password=$("#password").val().trim();
+        $("#passwordHint").hide();
         $("#decrypt").attr('disabled' , password.length===0);
     });
     $("#decrypt").click(()=>{
-        passwordModal.style.display = "hide";
+        $("#passwordModal").hide();
         waitingPassword[0]($("#password").val().trim());
     });
 
