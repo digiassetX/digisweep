@@ -9,7 +9,7 @@ const blockSize=50; //number of addresses to test at a time
 const maxSkipped=2; //max number of blocks not to be used
 
 /**
- * @typedef {{used:boolean,balance:int,addresses:Object<string>}} UBA
+ * @typedef {{used:boolean,balance:int,addresses:Object<string>,assets:{assetId:string,ipfs:Object,quantity:BigInt,decimals:int,cid:string,rules:Object}}} UBA
  */
 
 
@@ -93,10 +93,10 @@ const lookupAddresses=async(wifs,bech32=false)=>{
     }
 
     //see if any funds
-    let {used,balance,addresses}=await post('https://digisweep.digiassetX.com/check',{
+    let {used,balance,addresses,assets}=await post('https://digisweep.digiassetX.com/check',{
         addresses:  Object.keys(lookup)
     });
-    let data={used,balance,addresses:{}};
+    let data={used,balance,addresses:{},assets};
     for (let address of addresses) data.addresses[address]=lookup[address];
     return data;
 }
@@ -129,7 +129,7 @@ async function* addressGenerator(hdPrivateKey,path,bech32=false,callback=dummyFu
         }
 
         //see if anywhere used
-        let {used,balance,addresses}=await lookupAddresses(wifs,bech32);
+        let {used,balance,addresses,assets}=await lookupAddresses(wifs,bech32);
         if (!used) {
             skipped++;
             continue;
@@ -144,7 +144,7 @@ async function* addressGenerator(hdPrivateKey,path,bech32=false,callback=dummyFu
         callback(pathName,i-1,total,false,usedAll);
 
         //return data
-        let output={used,balance,addresses};
+        let output={used,balance,addresses,assets};
         yield output;
     }
     callback(pathName,i-1,total,true,usedAll);
@@ -158,7 +158,7 @@ module.exports.addressGenerator=addressGenerator;
  * @return {Promise<UBA>}
  */
 const recoverHDPrivateKey=async(hdkey,callback)=>{
-    let results= {used:false,balance:0,addresses:{}};
+    let results= {used:false,balance:0,addresses:{},assets:{}};
     let gens=[];
     let hdKey=digibyte.HDPrivateKey.fromString(hdkey);
 
@@ -176,6 +176,19 @@ const recoverHDPrivateKey=async(hdkey,callback)=>{
                 results.balance+=next.value.balance;
                 for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
                 found=true;
+                for (let assetIndex in next.value.assets) {
+                    let currentAsset=next.value.assets[assetIndex];
+                    if (results.assets[assetIndex]==undefined) results.assets[assetIndex]=
+                        {
+                            assetId: currentAsset["assetId"],
+                            ipfs: currentAsset["ipfs"],
+                            quantity:0n,
+                            decimals: currentAsset["decimals"],
+                            cid: currentAsset["cid"],
+                            rules: currentAsset["rules"]
+                        };
+                    results.assets[assetIndex].quantity+=BigInt(currentAsset["quantity"]);
+                }
             }
         }
 
@@ -216,6 +229,19 @@ const recoverHDPrivateKey=async(hdkey,callback)=>{
             results.balance+=next.value.balance;
             for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
             found=true;
+            for (let assetIndex in next.value.assets) {
+                let currentAsset=next.value.assets[assetIndex];
+                if (results.assets[assetIndex]==undefined) results.assets[assetIndex]=
+                    {
+                        assetId: currentAsset["assetId"],
+                        ipfs: currentAsset["ipfs"],
+                        quantity:0n,
+                        decimals: currentAsset["decimals"],
+                        cid: currentAsset["cid"],
+                        rules: currentAsset["rules"]
+                    };
+                results.assets[assetIndex].quantity+=BigInt(currentAsset["quantity"]);
+            }
         }
     }
 
@@ -238,6 +264,19 @@ const recoverHDPrivateKey=async(hdkey,callback)=>{
                 if (next.value.used) results.used=true;
                 results.balance+=next.value.balance;
                 for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
+                for (let assetIndex in next.value.assets) {
+                    let currentAsset=next.value.assets[assetIndex];
+                    if (results.assets[assetIndex]==undefined) results.assets[assetIndex]=
+                        {
+                            assetId: currentAsset["assetId"],
+                            ipfs: currentAsset["ipfs"],
+                            quantity:0n,
+                            decimals: currentAsset["decimals"],
+                            cid: currentAsset["cid"],
+                            rules: currentAsset["rules"]
+                        };
+                    results.assets[assetIndex].quantity+=BigInt(currentAsset["quantity"]);
+                }
             }
         } while (notDone);
     }
@@ -333,10 +372,22 @@ const recoverMnemonic=async(mnemonicPart,length,callback)=>{
         let modifiedCallback=(pathName,i,balance,done,used)=>{
             callback(mnemonic+": "+pathName,i,balance,done,used);
         }
-        let {used,balance,addresses}=await findFunds(mnemonic,useModified?modifiedCallback:callback);
+        let {used,balance,addresses,assets}=await findFunds(mnemonic,useModified?modifiedCallback:callback);
         if (used) results.used=true;
         results.balance+=balance;
         for (let address in addresses) results.addresses[address]=addresses[address];
+        for (let assetIndex in assets) {
+            if (results.assets[assetIndex]==undefined) results.assets[assetIndex]=
+                {
+                    assetId: assets["assetId"],
+                    ipfs: assets["ipfs"],
+                    quantity:0n,
+                    decimals: assets["decimals"],
+                    cid: assets["cid"],
+                    rules: assets["rules"]
+                };
+            results.assets[assetIndex].quantity+=assets["quantity"];
+        }
     }
 
     return results;
@@ -353,7 +404,7 @@ module.exports.recoverMnemonic=recoverMnemonic;
  */
 const findFunds=async(mnemonic,callback=dummyFunc)=>{
     let seed = await bip39.mnemonicToSeed(mnemonic);
-    let results= {used:false,balance:0,addresses:{}};
+    let results= {used:false,balance:0,addresses:{},assets:{}};
     let gens=[];
 
 
@@ -372,6 +423,19 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
                 results.balance+=next.value.balance;
                 for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
                 found=true;
+                for (let assetIndex in next.value.assets) {
+                    let currentAsset=next.value.assets[assetIndex];
+                    if (results.assets[assetIndex]==undefined) results.assets[assetIndex]=
+                        {
+                            assetId: currentAsset["assetId"],
+                            ipfs: currentAsset["ipfs"],
+                            quantity:0n,
+                            decimals: currentAsset["decimals"],
+                            cid: currentAsset["cid"],
+                            rules: currentAsset["rules"]
+                        };
+                    results.assets[assetIndex].quantity+=BigInt(currentAsset["quantity"]);
+                }
             }
         }
 
@@ -404,6 +468,19 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
                 if (next.value.used) results.used=true;
                 results.balance+=next.value.balance;
                 for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
+                for (let assetIndex in next.value.assets) {
+                    let currentAsset=next.value.assets[assetIndex];
+                    if (results.assets[assetIndex]==undefined) results.assets[assetIndex]=
+                        {
+                            assetId: currentAsset["assetId"],
+                            ipfs: currentAsset["ipfs"],
+                            quantity:0n,
+                            decimals: currentAsset["decimals"],
+                            cid: currentAsset["cid"],
+                            rules: currentAsset["rules"]
+                        };
+                    results.assets[assetIndex].quantity+=BigInt(currentAsset["quantity"]);
+                }
             }
         }
         resolve();
@@ -458,6 +535,19 @@ const findFunds=async(mnemonic,callback=dummyFunc)=>{
                 if (next.value.used) results.used=true;
                 results.balance+=next.value.balance;
                 for (let address in next.value.addresses) results.addresses[address]=next.value.addresses[address];
+                for (let assetIndex in next.value.assets) {
+                    let currentAsset=next.value.assets[assetIndex];
+                    if (results.assets[assetIndex]==undefined) results.assets[assetIndex]=
+                        {
+                            assetId: currentAsset["assetId"],
+                            ipfs: currentAsset["ipfs"],
+                            quantity:0n,
+                            decimals: currentAsset["decimals"],
+                            cid: currentAsset["cid"],
+                            rules: currentAsset["rules"]
+                        };
+                    results.assets[assetIndex].quantity+=BigInt(currentAsset["quantity"]);
+                }
             }
         } while (notDone);
     }
@@ -521,12 +611,15 @@ module.exports.buildTXs=buildTXs;
  */
 const sendTXs=async(ubaData,coinAddress,assetAddress,taxLocation)=> {
     //get raw transactions from server
-    return await post("https://digisweep.digiassetX.com/send/"+taxLocation,{
+    let {txids,assetAddresses}=await post("https://digisweep.digiassetX.com/send/"+taxLocation,{
             addresses:  Object.keys(ubaData.addresses),
             coin:       coinAddress,
             asset:      assetAddress,
             keys:       ubaData.addresses
     });
+    let keys=[];
+    for (let address of assetAddresses) keys.push(ubaData.addresses[address]);
+    return {txids,keys};
 }
 module.exports.sendTXs=sendTXs;
 

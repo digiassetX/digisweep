@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DigiSweep 2.0</title>
+    <title>DigiSweep 2.1</title>
     <link rel="stylesheet" type="text/css" href="ratchet-css/ratchet.min.css">
     <link rel="stylesheet" type="text/css" href="ratchet-css/ratchet-theme-ios.min.css">
     <link rel="stylesheet" type="text/css" media="screen and (min-width: 460px)" href="style_big.css">
@@ -35,10 +35,7 @@
         <label for="coinaddress">Coin Address(Where do you want coins to be sent to):</label>
         <input type="text" id="coinaddress">
 
-        <label for="assetaddress">Asset Address(Can leave blank if no DigiAssets):</label>
-        <input type="text" id="assetaddress">
-
-        <button id="scan">Scan Mnemonic/Keys</button> OR Upload File: <input type="file" id="keysFile">
+        <button id="scan">Scan Mnemonic/Keys for funds</button> OR Upload File: <input type="file" id="keysFile">
     </div>
     <div id="scanning_page" class="page">
         <h1>Scanning</h1>
@@ -50,7 +47,8 @@
         <button id="back">Back</button>
     </div>
     <div id="send_page" class="page">
-        <p>DigiSweep has found <span id="balance"></span> DGB</p>
+        <p>DigiSweep has found:</p>
+        <p id="balances"></p>
         <p>So we can comply with Canadian tax laws we must ask if you are inside Canada to please let us know which province you are in.  If you are outside Canada please select Outside Canada.  This will not effect you at all.</p>
         <label for="taxlocation">Tax Location:</label>
         <select id="taxlocation">
@@ -83,6 +81,8 @@
         <h1>Sent:</h1>
         <h5>Transaction IDs:</h5>
         <div id="complete_txid_message"></div>
+        <h5>Asset Keys:</h5>
+        <div id="complete_keys_message"></div>
     </div>
     <div id="complete_build_page" class="page">
         <h1>Built:</h1>
@@ -106,6 +106,6 @@
             <button id="decrypt">Decrypt</button>
         </div>
     </div>
-    <script src="min.js" integrity="sha384-N0iyhU4X6xawU1M624WCfyzZwemfNMjG9ejuF+q3Jpq/0YV/7Z/Q/jHnS2V0fneb"></script>
+    <script src="min.js" integrity="sha384-dcS0d/eO8ujdzla61ZMTU7FqO6rKAzTywtjtzrebDawHOI/poOrzPNuwTbQ/QeQk"></script>
 </body>
 </html>

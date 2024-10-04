@@ -12,8 +12,23 @@ const sjcl=require("sjcl");
 
 let addressData=[];
 let coinAddress;
-let assetAddress;
+
+
+
+
 $(function() {
+    const formatBigInt = (quantity, decimals) => {
+        const factor = BigInt(Math.pow(10, decimals));
+        const integerPart = quantity / factor;
+        const fractionalPart = quantity % factor;
+
+        // Convert the integer and fractional parts to strings
+        let fractionalStr = fractionalPart.toString().padStart(decimals, '0'); // Ensure correct decimal places
+        let integerStr = integerPart.toString();
+
+        return `${integerStr}.${fractionalStr}`;
+    }
+
     /*___     _             ___
      |_ _|_ _| |_ _ _ ___  | _ \__ _ __ _ ___
       | || ' \  _| '_/ _ \ |  _/ _` / _` / -_)
@@ -58,11 +73,9 @@ $(function() {
             //get inputs
             let mnemonic = $("#mnemonic").val().trim();
             coinAddress = $("#coinaddress").val().trim();
-            assetAddress = $("#assetaddress").val().trim();
 
             //validate inputs
             if (!DigiSweep.validAddress(coinAddress)) throw coinAddress + " is not a valid address";
-            if ((assetAddress!=="")&&(!DigiSweep.validAddress(assetAddress))) throw assetAddress + " is not a valid address";
 
             //gather address data
             if (length === 1) {
@@ -99,7 +112,18 @@ $(function() {
             }
 
             //gather balance
-            $("#balance").html((addressData.balance/100000000).toFixed(8));
+            let balancesHTML='<p><span id="balance">'+(addressData.balance/100000000).toFixed(8)+'</span> DGB</p>';
+
+            //show found assets
+            for (let assetIndex in addressData.assets) {
+                let {assetId,quantity,decimals,ipfs,rules,cid}=addressData.assets[assetIndex];
+                let name=assetId;
+                if (typeof ipfs === 'object' && ipfs.data && ipfs.data.assetName) {
+                    name += ` (${ipfs.data.assetName})`;
+                }
+                balancesHTML+=`<p><span class="balance">${formatBigInt(quantity,decimals)}</span> ${name}</p>`;
+            }
+            $("#balances").html(balancesHTML);
 
             //show send_page
             $(".page").hide();
@@ -203,12 +227,10 @@ $(function() {
 
     document.getElementById('keysFile').addEventListener('change',function(e) {
         coinAddress = $("#coinaddress").val().trim();
-        assetAddress = $("#assetaddress").val().trim();
 
         try {
             //validate inputs
             if (!DigiSweep.validAddress(coinAddress)) throw coinAddress + " is not a valid address";
-            if ((assetAddress !== "") && (!DigiSweep.validAddress(assetAddress))) throw assetAddress + " is not a valid address";
         } catch (e) {
             console.log(e);
             showError(e);
@@ -255,12 +277,23 @@ $(function() {
                         if (addressData.used) {
                             throw "Wallet was used but has no balance now";
                         } else {
-                            throw "Wallet was never used";
+                            throw "Wallet has no funds"; //check can no longer determine if an address was used.
                         }
                     }
 
                     //gather balance
-                    $("#balance").html((addressData.balance/100000000).toFixed(8));
+                    let balancesHTML='<p><span id="balance">'+(addressData.balance/100000000).toFixed(8)+'</span> DGB</p>';
+
+                    //show found assets
+                    for (let assetIndex in addressData.assets) {
+                        let {assetId,quantity,decimals,ipfs,rules,cid}=addressData.assets[assetIndex];
+                        let name=assetId;
+                        if (typeof ipfs === 'object' && ipfs.data && ipfs.data.assetName) {
+                            name += ` (${ipfs.data.assetName})`;
+                        }
+                        balancesHTML+=`<p><span class="balance">${formatBigInt(quantity,decimals)}</span> ${name}</p>`;
+                    }
+                    $("#balances").html(balancesHTML);
 
                     //show send_page
                     $(".page").hide();
@@ -347,8 +380,9 @@ $(function() {
 
         //send and get txids
         try {
-            let txids = await DigiSweep.sendTXs(addressData, coinAddress, assetAddress, domTaxLocation.val());
+            let {txids,keys} = await DigiSweep.sendTXs(addressData, coinAddress, "", domTaxLocation.val());
             $("#complete_txid_message").html('<p>' + txids.join("</p><p>") + '</p>');
+            $("#complete_keys_message").html('<p>' + keys.join("</p><p>") + '</p>');
 
             //show complete_page
             $(".page").hide();
@@ -366,7 +400,7 @@ $(function() {
 
         //send and get txids
         try {
-            let messages = await DigiSweep.buildTXs(addressData, coinAddress, assetAddress, domTaxLocation.val());
+            let messages = await DigiSweep.buildTXs(addressData, coinAddress, "", domTaxLocation.val());
             let done=messages.pop();
             $("#complete_build_message").html('<p>' + messages.join("</p><p>") + '</p>');
             $("#complete_build_notdone")[done?"hide":"show"]();
